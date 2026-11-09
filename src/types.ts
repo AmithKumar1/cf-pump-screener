@@ -63,6 +63,16 @@ export interface TokenMetrics {
   shannon_entropy: number;
   kyle_lambda: number;
   pareto_exponent: number;
+  // Predictive Microstructure & Stochastic Models
+  hawkes_branching_ratio: number;
+  is_supercritical_fomo: boolean;
+  graduation_probability: number;
+  hurst_exponent: number;
+  hurst_regime: "TRENDING" | "RANDOM_WALK" | "MEAN_REVERTING";
+  market_regime: "ACCUMULATION" | "MARKUP_FRENZY" | "DISTRIBUTION_EXIT";
+  distribution_risk_pct: number;
+  sybil_cluster_ratio: number;
+  effective_unique_buyers: number;
 }
 
 export interface ScoreResult {

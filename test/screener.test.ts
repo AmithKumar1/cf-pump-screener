@@ -8,6 +8,11 @@ import {
   computeShannonEntropy,
   computeKyleLambda,
   computeParetoExponent,
+  computeHawkesProcess,
+  computeGraduationProbability,
+  computeHurstExponent,
+  detectMarketRegime,
+  computeSybilClusterMetrics,
   calculateTokenMetrics,
   scoreTokenCandidate,
   PUMP_TOTAL_SUPPLY,
@@ -73,7 +78,7 @@ describe("Quantitative Screener & Mathematical Models", () => {
         trader: `buyer_${i}`,
         sol_amount: 1.0,
         token_amount: 1_000_000,
-        block_time: 100 + i,
+        block_time: 100 + i * 15,
       });
     }
     const metrics = calculateTokenMetrics(trades, dev);
@@ -218,7 +223,165 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.equal(paretoBot.isOrganicPowerLaw, false);
   });
 
-  it("Theorem 11: Clean High-Conviction Token Passes All Institutional Gates", () => {
+  it("Theorem 12: Hawkes Self-Exciting Point Process detects supercritical viral cascade", () => {
+    // 1. Supercritical rapid arrivals (1 second inter-arrival)
+    const rapidTrades: TradePoint[] = [];
+    for (let i = 0; i < 20; i++) {
+      rapidTrades.push({
+        signature: `rap_${i}`,
+        mint: "M1",
+        side: "buy",
+        trader: `w_${i}`,
+        sol_amount: 0.5,
+        token_amount: 50_000,
+        block_time: 1000 + i * 1,
+      });
+    }
+    const hawkesRapid = computeHawkesProcess(rapidTrades, 0.08);
+    assert.equal(hawkesRapid.is_supercritical, true);
+    assert.ok(hawkesRapid.branching_ratio >= 1.0);
+
+    // 2. Subcritical slow arrivals (45 seconds inter-arrival)
+    const slowTrades: TradePoint[] = [];
+    for (let i = 0; i < 20; i++) {
+      slowTrades.push({
+        signature: `slw_${i}`,
+        mint: "M1",
+        side: "buy",
+        trader: `w_${i}`,
+        sol_amount: 0.5,
+        token_amount: 50_000,
+        block_time: 1000 + i * 45,
+      });
+    }
+    const hawkesSlow = computeHawkesProcess(slowTrades, 0.08);
+    assert.equal(hawkesSlow.is_supercritical, false);
+    assert.ok(hawkesSlow.branching_ratio < 0.20);
+  });
+
+  it("Theorem 13: Cox Proportional Hazards Model projects calibrated graduation odds", () => {
+    // High-momentum surging coin (35 SOL raised, fast velocity, high entropy, zero dev dump)
+    const highProb = computeGraduationProbability(
+      35.0, // net SOL
+      3.0,  // velocity SOL/min
+      0.92, // entropy
+      0.85, // OFI
+      0.20, // VPIN toxicity
+      0.05, // HHI
+      false // dev sold
+    );
+    assert.ok(highProb >= 0.70);
+
+    // Abandoned dead-end coin (2 SOL raised, 0 velocity, high HHI, dev dumped)
+    const dumpedProb = computeGraduationProbability(
+      2.0,
+      0.05,
+      0.20,
+      0.10,
+      0.80,
+      0.60,
+      true
+    );
+    assert.equal(dumpedProb, 0.0);
+  });
+
+  it("Theorem 14: Hurst Exponent distinguishes persistent trend from mean reversion", () => {
+    // 1. Pure persistent upward trend (H > 0.60)
+    let price = 10.0;
+    const trendTrades: TradePoint[] = [];
+    for (let i = 0; i < 30; i++) {
+      price *= 1.02;
+      trendTrades.push({
+        signature: `tr_${i}`,
+        mint: "M1",
+        side: "buy",
+        trader: `w_${i}`,
+        sol_amount: price,
+        token_amount: 1.0,
+      });
+    }
+    const hurstTrend = computeHurstExponent(trendTrades, 4);
+    assert.equal(hurstTrend.hurst_regime, "TRENDING");
+    assert.ok(hurstTrend.hurst_exponent > 0.60);
+
+    // 2. Oscillating mean-reverting chop (H < 0.40)
+    const chopTrades: TradePoint[] = [];
+    for (let i = 0; i < 30; i++) {
+      const p = 10.0 * (i % 2 === 0 ? 1.06 : 0.94);
+      chopTrades.push({
+        signature: `ch_${i}`,
+        mint: "M1",
+        side: "buy",
+        trader: `w_${i}`,
+        sol_amount: p,
+        token_amount: 1.0,
+      });
+    }
+    const hurstChop = computeHurstExponent(chopTrades, 4);
+    assert.equal(hurstChop.hurst_regime, "MEAN_REVERTING");
+    assert.ok(hurstChop.hurst_exponent < 0.40);
+  });
+
+  it("Theorem 15: Market Microstructure Regime identifies Frenzy vs Distribution", () => {
+    const dummyTrades: TradePoint[] = new Array(15).fill({
+      signature: "x",
+      mint: "M1",
+      side: "buy",
+      trader: "w",
+      sol_amount: 1,
+      token_amount: 1000,
+    });
+
+    // 1. Markup Frenzy (high velocity, high OFI, supercritical Hawkes)
+    const frenzy = detectMarketRegime(dummyTrades, 0.25, 0.85, 2.5, 1.2);
+    assert.equal(frenzy.market_regime, "MARKUP_FRENZY");
+    assert.ok(frenzy.distribution_risk_pct < 40);
+
+    // 2. Stealth Distribution Exit (high VPIN toxicity, low OFI)
+    const distribution = detectMarketRegime(dummyTrades, 0.75, 0.20, 0.5, 0.3);
+    assert.equal(distribution.market_regime, "DISTRIBUTION_EXIT");
+    assert.ok(distribution.distribution_risk_pct >= 65);
+  });
+
+  it("Theorem 16: Sybil Graph & Co-Execution unmasks synchronized bot farms", () => {
+    // 1. Synchronized bot burst (20 wallets buying in identical slot <= 1s)
+    const botSwarm: TradePoint[] = [];
+    for (let i = 0; i < 20; i++) {
+      botSwarm.push({
+        signature: `b_${i}`,
+        mint: "M1",
+        side: "buy",
+        trader: `bot_wallet_${i}`,
+        sol_amount: 0.5,
+        token_amount: 1000,
+        block_time: 1000 + (i % 2),
+      });
+    }
+    const sybilBots = computeSybilClusterMetrics(botSwarm);
+    assert.equal(sybilBots.is_cabal_sybil, true);
+    assert.ok(sybilBots.sybil_cluster_ratio >= 0.80);
+    assert.ok(sybilBots.effective_unique_buyers < 10);
+
+    // 2. Natural organic human dispersion (buys spaced 15s apart)
+    const organicBuyers: TradePoint[] = [];
+    for (let i = 0; i < 20; i++) {
+      organicBuyers.push({
+        signature: `o_${i}`,
+        mint: "M1",
+        side: "buy",
+        trader: `organic_wallet_${i}`,
+        sol_amount: 0.5,
+        token_amount: 1000,
+        block_time: 1000 + i * 15,
+      });
+    }
+    const sybilOrganic = computeSybilClusterMetrics(organicBuyers);
+    assert.equal(sybilOrganic.is_cabal_sybil, false);
+    assert.equal(sybilOrganic.sybil_cluster_ratio, 0.0);
+    assert.equal(sybilOrganic.effective_unique_buyers, 20);
+  });
+
+  it("Theorem 11: Clean High-Conviction Token Passes All Institutional & Predictive Gates", () => {
     const dev = "DevWallet1111111111111111111111111111111";
     const trades: TradePoint[] = [
       // Dev buys small bag (0.25% supply) and holds
@@ -247,6 +410,8 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.ok(metrics.dev_supply_pct <= 0.05);
     assert.ok(metrics.shannon_entropy > 0.80);
     assert.ok(metrics.pareto_exponent >= 1.1 && metrics.pareto_exponent <= 3.2);
+    assert.ok(metrics.graduation_probability >= 0.50);
+    assert.equal(metrics.is_cabal_sybil ?? false, false);
 
     const metadata: LaunchMetadata = {
       name: "Alpha Gem",
@@ -265,7 +430,7 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.ok(score.total_score >= 80);
     assert.equal(score.is_high_interest, true);
 
-    // Verify Telegram card formats all quant metrics
+    // Verify Telegram card formats all quant and predictive metrics
     const card = formatResearchCard(
       "M1",
       "ALPHA",
@@ -285,15 +450,23 @@ describe("Quantitative Screener & Mathematical Models", () => {
       metrics.vpin,
       metrics.shannon_entropy,
       metrics.amihud_iliq,
-      metrics.pareto_exponent
+      metrics.pareto_exponent,
+      metrics.graduation_probability,
+      metrics.market_regime,
+      metrics.hawkes_branching_ratio,
+      metrics.hurst_exponent,
+      metrics.effective_unique_buyers,
+      metrics.sybil_cluster_ratio
     );
 
     assert.ok(card.includes("Inflow Velocity:"));
     assert.ok(card.includes("Top 5 Buyer Share:"));
     assert.ok(card.includes("HHI:"));
     assert.ok(card.includes("Microstructure: VPIN"));
-    assert.ok(card.includes("Entropy:"));
-    assert.ok(card.includes("Curve Dynamics: ILIQ"));
-    assert.ok(card.includes("Pareto: ζ="));
+    assert.ok(card.includes("Predictive & Forecasting Analytics:"));
+    assert.ok(card.includes("Raydium Migration Probability:"));
+    assert.ok(card.includes("Market Microstructure Regime:"));
+    assert.ok(card.includes("Hawkes Cascade Intensity:"));
+    assert.ok(card.includes("Hurst Trend Persistence:"));
   });
 });

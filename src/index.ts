@@ -388,7 +388,13 @@ async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
         metrics.vpin,
         metrics.shannon_entropy,
         metrics.amihud_iliq,
-        metrics.pareto_exponent
+        metrics.pareto_exponent,
+        metrics.graduation_probability,
+        metrics.market_regime,
+        metrics.hawkes_branching_ratio,
+        metrics.hurst_exponent,
+        metrics.effective_unique_buyers,
+        metrics.sybil_cluster_ratio
       );
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, cardText);
     }

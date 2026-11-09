@@ -54,7 +54,13 @@ export function formatResearchCard(
   vpin: number = 0,
   entropy: number = 0,
   amihudIliq: number = 0,
-  paretoExp: number = 0
+  paretoExp: number = 0,
+  gradProb: number = 0,
+  regime: string = "ACCUMULATION",
+  hawkesEta: number = 0.5,
+  hurstH: number = 0.5,
+  effectiveBuyers: number = buyers,
+  sybilRatio: number = 0
 ): string {
   const flagsStr = flags.length > 0 ? flags.join(" | ") : "Clean";
   const devStatus = devSold
@@ -72,10 +78,16 @@ export function formatResearchCard(
     `📊 On-Chain Quant Metrics:`,
     `  • Net Capital Raised: ${netSol.toFixed(2)} SOL (${curveProgress.toFixed(1)}% to Raydium)`,
     `  • Inflow Velocity: ${velocity.toFixed(2)} SOL/min | OFI: ${(ofi * 100).toFixed(0)}% buys`,
-    `  • Distribution: ${buyers} Unique Buyers | HHI: ${hhi.toFixed(3)}`,
-    `  • Top 5 Buyer Share: ${(top5Share * 100).toFixed(1)}% volume`,
+    `  • Distribution: ${buyers} Unique Buyers (Effective: ${effectiveBuyers}) | HHI: ${hhi.toFixed(3)}`,
+    `  • Top 5 Buyer Share: ${(top5Share * 100).toFixed(1)}% volume | Sybil Cluster: ${(sybilRatio * 100).toFixed(0)}%`,
     `  • Microstructure: VPIN ${(vpin * 100).toFixed(0)}% toxicity | Entropy: ${entropy.toFixed(2)}`,
     `  • Curve Dynamics: ILIQ ${amihudIliq.toFixed(4)} | Pareto: ζ=${paretoExp.toFixed(2)}`,
+    ``,
+    `🔮 Predictive & Forecasting Analytics:`,
+    `  • Raydium Migration Probability: ${(gradProb * 100).toFixed(1)}% (15m survival horizon)`,
+    `  • Market Microstructure Regime: ${regime}`,
+    `  • Hawkes Cascade Intensity: η=${hawkesEta.toFixed(2)} ${hawkesEta >= 1.0 ? "(⚡ Supercritical FOMO)" : "(Subcritical)"}`,
+    `  • Hurst Trend Persistence: H=${hurstH.toFixed(2)} ${hurstH > 0.6 ? "(📈 Persistent Trend)" : hurstH < 0.4 ? "(🔄 Mean Reverting)" : "(🎲 Random Walk)"}`,
     ``,
     `🏷️ Quantitative Flags:`,
     `  ${flagsStr}`,
