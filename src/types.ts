@@ -47,9 +47,15 @@ export interface TokenMetrics {
   unique_sellers: number;
   buyer_hhi: number;
   top_buyer_share: number;
+  top5_buyer_share: number;
   dev_sold: boolean;
+  dev_dump_pct: number;
   dev_token_balance: number;
+  dev_supply_pct: number;
   curve_progress_pct: number;
+  elapsed_seconds: number;
+  sol_velocity_per_min: number;
+  order_flow_imbalance: number;
 }
 
 export interface ScoreResult {

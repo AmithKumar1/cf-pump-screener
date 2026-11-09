@@ -221,7 +221,7 @@ async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
     .all<TradePoint>();
 
   const trades = tradeRows.results || [];
-  if (trades.length < 5) return; // Wait for at least 5 trades to establish organic distribution
+  if (trades.length < 8) return; // Wait for at least 8 trades to establish distribution profile
 
   const creator = eventRow ? eventRow.creator : "unknown";
   const metadata: LaunchMetadata = eventRow
@@ -242,13 +242,24 @@ async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
   const minScore = Number(env.MIN_ALERT_SCORE || 75);
   const score = scoreTokenCandidate(metadata, metrics, minScore, creator);
 
-  // Gate 1 & 2 Hard Filters for Quality Intelligence:
-  // A. Reject anonymous tokens with no verified social or community links
-  if (score.flags.includes("NO_SOCIALS")) return;
-  // B. Require at least 15 SOL net capital inflow to filter out micro-noise
+  // Institutional Risk & Quality Gates:
+  // Gate 1: Slaughter Zone Floor (Must have >= 15 SOL net capital raised)
   if (metrics.net_sol_raised < 15.0) return;
-  // C. Disqualify if dev dumped tokens
-  if (score.flags.includes("DEV_DUMPED_TOKENS")) return;
+
+  // Gate 2: Absolute ban on anonymous coins without verified socials
+  if (score.flags.includes("NO_SOCIALS")) return;
+
+  // Gate 3: Zero-tolerance dev dump (>= 10% sold) or dev overholding (> 10% supply)
+  if (score.flags.includes("DEV_DUMPED_TOKENS") || score.flags.includes("DEV_OVERHOLDING_HAZARD")) return;
+
+  // Gate 4: Zero-tolerance stagnant curve decay (> 25 mins without momentum)
+  if (score.flags.includes("STAGNANT_MOMENTUM")) return;
+
+  // Gate 5: Minimum unique buyers (decentralization anti-sybil)
+  if (metrics.unique_buyers < 12) return;
+
+  // Gate 6: Maximum concentration (Whale / Cabal filter)
+  if (metrics.buyer_hhi > 0.28 || metrics.top5_buyer_share > 0.45) return;
 
   if (!score.is_high_interest) return;
 
@@ -315,7 +326,11 @@ async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
         metrics.buyer_hhi,
         [stageLabel, ...score.flags],
         metrics.dev_sold,
-        metrics.curve_progress_pct
+        metrics.curve_progress_pct,
+        metrics.sol_velocity_per_min,
+        metrics.top5_buyer_share,
+        metrics.dev_supply_pct,
+        metrics.order_flow_imbalance
       );
       await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, cardText);
     }

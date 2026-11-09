@@ -46,10 +46,16 @@ export function formatResearchCard(
   hhi: number,
   flags: string[],
   devSold: boolean,
-  curveProgress: number
+  curveProgress: number,
+  velocity: number = 0,
+  top5Share: number = 0,
+  devSupplyPct: number = 0,
+  ofi: number = 0
 ): string {
   const flagsStr = flags.length > 0 ? flags.join(" | ") : "Clean";
-  const devStatus = devSold ? "❌ DUMPED" : "✅ Holding";
+  const devStatus = devSold
+    ? "❌ DUMPED"
+    : `✅ Holding (${(devSupplyPct * 100).toFixed(1)}% supply)`;
 
   return [
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
@@ -59,14 +65,16 @@ export function formatResearchCard(
     `📍 Mint: ${mint}`,
     `👤 Dev: ${creator.slice(0, 10)}...`,
     ``,
-    `📊 On-Chain Metrics:`,
-    `  • Net SOL Raised: ${netSol.toFixed(2)} SOL`,
-    `  • Unique Buyers: ${buyers} | HHI: ${hhi.toFixed(3)}`,
-    `  • Curve Progress: ${curveProgress.toFixed(1)}% to Raydium`,
+    `📊 On-Chain Quant Metrics:`,
+    `  • Net Capital Raised: ${netSol.toFixed(2)} SOL (${curveProgress.toFixed(1)}% to Raydium)`,
+    `  • Inflow Velocity: ${velocity.toFixed(2)} SOL/min | OFI: ${(ofi * 100).toFixed(0)}% buys`,
+    `  • Distribution: ${buyers} Unique Buyers | HHI: ${hhi.toFixed(3)}`,
+    `  • Top 5 Buyer Share: ${(top5Share * 100).toFixed(1)}% volume`,
     ``,
-    `🏷️ Flags: ${flagsStr}`,
+    `🏷️ Quantitative Flags:`,
+    `  ${flagsStr}`,
     ``,
-    `🔗 Charts:`,
+    `🔗 Charts & On-Chain Analysis:`,
     `  • https://dexscreener.com/solana/${mint}`,
     `  • https://pump.fun/coin/${mint}`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
