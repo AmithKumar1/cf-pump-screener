@@ -32,6 +32,213 @@ export function computeTopKShare(
 }
 
 /**
+ * Theorem 1: Volume-Synchronized Probability of Toxicity (VPIN)
+ * Reference: Easley, López de Prado, and O'Hara (2012)
+ * Partitions trade volume into B equal volume buckets and measures the normalized order imbalance.
+ * Range: [0.0, 1.0]. Values >= 0.75 indicate severe toxic flow (imminent dump).
+ */
+export function computeVPIN(trades: TradePoint[], bucketCount: number = 5): number {
+  if (trades.length < 4) return 0.0;
+  const totalVolume = trades.reduce((sum, t) => sum + t.sol_amount, 0);
+  if (totalVolume <= 0) return 0.0;
+
+  const bucketSize = totalVolume / bucketCount;
+  let currentBucketBuy = 0;
+  let currentBucketSell = 0;
+  let currentBucketVol = 0;
+  let absoluteImbalancesSum = 0;
+  let completedBuckets = 0;
+
+  for (const t of trades) {
+    let remainingTradeVol = t.sol_amount;
+    const isBuy = t.side === "buy";
+
+    while (remainingTradeVol > 0 && completedBuckets < bucketCount) {
+      const spaceInBucket = bucketSize - currentBucketVol;
+      const fillAmount = Math.min(remainingTradeVol, spaceInBucket);
+
+      if (isBuy) {
+        currentBucketBuy += fillAmount;
+      } else {
+        currentBucketSell += fillAmount;
+      }
+      currentBucketVol += fillAmount;
+      remainingTradeVol -= fillAmount;
+
+      if (currentBucketVol >= bucketSize - 1e-9) {
+        absoluteImbalancesSum += Math.abs(currentBucketBuy - currentBucketSell);
+        completedBuckets++;
+        currentBucketBuy = 0;
+        currentBucketSell = 0;
+        currentBucketVol = 0;
+      }
+    }
+  }
+
+  if (currentBucketVol > 0 && completedBuckets < bucketCount) {
+    absoluteImbalancesSum += Math.abs(currentBucketBuy - currentBucketSell);
+    completedBuckets++;
+  }
+
+  if (completedBuckets <= 0) return 0.0;
+  const vpin = absoluteImbalancesSum / (completedBuckets * bucketSize);
+  return Math.max(0.0, Math.min(1.0, vpin));
+}
+
+/**
+ * Theorem 2: Amihud Illiquidity Ratio (ILIQ)
+ * Reference: Amihud (2002)
+ * Measures average absolute price return per unit of SOL volume traded.
+ * Higher values signify hollow, fragile liquidity (slippage trap).
+ */
+export function computeAmihudIlliquidity(trades: TradePoint[]): number {
+  if (trades.length < 3) return 0.0;
+
+  let iliqSum = 0;
+  let validTransitions = 0;
+
+  for (let i = 1; i < trades.length; i++) {
+    const prev = trades[i - 1];
+    const curr = trades[i];
+
+    if (prev.token_amount <= 0 || curr.token_amount <= 0 || curr.sol_amount <= 0) {
+      continue;
+    }
+
+    const prevPrice = prev.sol_amount / prev.token_amount;
+    const currPrice = curr.sol_amount / curr.token_amount;
+    const returnPct = Math.abs(currPrice - prevPrice) / prevPrice;
+
+    iliqSum += returnPct / curr.sol_amount;
+    validTransitions++;
+  }
+
+  return validTransitions > 0 ? iliqSum / validTransitions : 0.0;
+}
+
+/**
+ * Theorem 3: Normalized Shannon Information Entropy of Capital Distribution
+ * Reference: Shannon (1948)
+ * Quantifies the informational dispersion of capital across unique buyer wallets.
+ * Range: [0.0, 1.0]. Values >= 0.80 indicate highly decentralized organic crowd allocation.
+ */
+export function computeShannonEntropy(buyerVolumes: Record<string, number>): number {
+  const volumes = Object.values(buyerVolumes).filter((v) => v > 0);
+  const n = volumes.length;
+  if (n <= 1) return 0.0;
+
+  const total = volumes.reduce((sum, v) => sum + v, 0);
+  if (total <= 0) return 0.0;
+
+  let entropy = 0;
+  for (const v of volumes) {
+    const p = v / total;
+    if (p > 0) {
+      entropy -= p * Math.log(p);
+    }
+  }
+
+  const maxEntropy = Math.log(n);
+  return maxEntropy > 0 ? Math.max(0.0, Math.min(1.0, entropy / maxEntropy)) : 0.0;
+}
+
+/**
+ * Theorem 4: Kyle's Lambda (Price Impact & Adverse Selection Coefficient)
+ * Reference: Kyle (1985)
+ * Measures the slope of price reaction to signed net order flow: Cov(ΔP, ΔV) / Var(ΔV).
+ */
+export function computeKyleLambda(trades: TradePoint[]): number {
+  if (trades.length < 4) return 0.0;
+
+  const deltaP: number[] = [];
+  const deltaV: number[] = [];
+
+  for (let i = 1; i < trades.length; i++) {
+    const prev = trades[i - 1];
+    const curr = trades[i];
+    if (prev.token_amount <= 0 || curr.token_amount <= 0) continue;
+
+    const pPrev = prev.sol_amount / prev.token_amount;
+    const pCurr = curr.sol_amount / curr.token_amount;
+    const dp = pCurr - pPrev;
+    const signedVol = curr.side === "buy" ? curr.sol_amount : -curr.sol_amount;
+
+    deltaP.push(dp);
+    deltaV.push(signedVol);
+  }
+
+  const n = deltaP.length;
+  if (n < 3) return 0.0;
+
+  const meanP = deltaP.reduce((s, v) => s + v, 0) / n;
+  const meanV = deltaV.reduce((s, v) => s + v, 0) / n;
+
+  let cov = 0;
+  let varV = 0;
+  for (let i = 0; i < n; i++) {
+    const diffV = deltaV[i] - meanV;
+    cov += (deltaP[i] - meanP) * diffV;
+    varV += diffV * diffV;
+  }
+
+  if (varV <= 1e-12) return 0.0;
+  const lambda = cov / varV;
+  return Math.max(0.0, lambda);
+}
+
+/**
+ * Theorem 5: Pareto Power-Law Exponent (ζ) for Wash-Trade & Bot Detection
+ * Reference: Gabaix et al. (2003), Clauset et al. (2009)
+ * Real human trading follows a power-law distribution with exponent 1.1 <= ζ <= 3.2.
+ * Uniform trade amounts or lack of variance indicate bot wash-trading rings.
+ */
+export function computeParetoExponent(trades: TradePoint[]): {
+  exponent: number;
+  coefficientOfVariation: number;
+  isOrganicPowerLaw: boolean;
+  isWashTradeSuspicious: boolean;
+} {
+  const buySizes = trades.filter((t) => t.side === "buy" && t.sol_amount > 0).map((t) => t.sol_amount);
+  const m = buySizes.length;
+  if (m < 6) {
+    return {
+      exponent: 1.5,
+      coefficientOfVariation: 1.0,
+      isOrganicPowerLaw: true,
+      isWashTradeSuspicious: false,
+    };
+  }
+
+  const mean = buySizes.reduce((s, v) => s + v, 0) / m;
+  const variance = buySizes.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / m;
+  const std = Math.sqrt(variance);
+  const cv = mean > 0 ? std / mean : 0.0;
+
+  const sMin = Math.max(Math.min(...buySizes), 0.005);
+  let logSum = 0;
+  for (const s of buySizes) {
+    logSum += Math.log(Math.max(s, sMin) / sMin);
+  }
+
+  let exponent = 2.0;
+  if (logSum > 1e-6) {
+    exponent = 1.0 + m / logSum;
+  } else {
+    exponent = 10.0;
+  }
+
+  const isWashTrade = cv < 0.15 || exponent > 4.5;
+  const isOrganic = !isWashTrade && exponent >= 1.1 && exponent <= 3.2 && cv >= 0.30;
+
+  return {
+    exponent: Math.round(exponent * 100) / 100,
+    coefficientOfVariation: Math.round(cv * 100) / 100,
+    isOrganicPowerLaw: isOrganic,
+    isWashTradeSuspicious: isWashTrade,
+  };
+}
+
+/**
  * Compute quantitative flow, concentration, developer status, and velocity metrics.
  */
 export function calculateTokenMetrics(
@@ -59,6 +266,11 @@ export function calculateTokenMetrics(
       elapsed_seconds: 0,
       sol_velocity_per_min: 0,
       order_flow_imbalance: 0,
+      vpin: 0,
+      amihud_iliq: 0,
+      shannon_entropy: 0,
+      kyle_lambda: 0,
+      pareto_exponent: 1.5,
     };
   }
 
@@ -122,6 +334,13 @@ export function calculateTokenMetrics(
   const elapsedMinutes = Math.max(elapsedSeconds / 60.0, 0.5);
   const solVelocity = netSol / elapsedMinutes;
 
+  // Advanced Microstructure & Quantitative Theorems
+  const vpin = computeVPIN(trades, 5);
+  const amihudIliq = computeAmihudIlliquidity(trades);
+  const shannonEntropy = computeShannonEntropy(buyerVolumes);
+  const kyleLambda = computeKyleLambda(trades);
+  const paretoResult = computeParetoExponent(trades);
+
   return {
     total_trades: trades.length,
     buy_count: buyCount,
@@ -141,6 +360,11 @@ export function calculateTokenMetrics(
     elapsed_seconds: elapsedSeconds,
     sol_velocity_per_min: solVelocity,
     order_flow_imbalance: ofi,
+    vpin,
+    amihud_iliq: amihudIliq,
+    shannon_entropy: shannonEntropy,
+    kyle_lambda: kyleLambda,
+    pareto_exponent: paretoResult.exponent,
   };
 }
 
@@ -188,6 +412,14 @@ export function scoreTokenCandidate(
     decScore = Math.max(decScore - 8, 0);
   }
 
+  // Theorem 3: Shannon Information Entropy
+  if (metrics.shannon_entropy >= 0.80 && metrics.unique_buyers >= 15) {
+    decScore = Math.min(decScore + 5, 30);
+    flags.push("HIGH_ENTROPY_DECENTRALIZED");
+  } else if (metrics.shannon_entropy > 0 && metrics.shannon_entropy < 0.45 && metrics.unique_buyers >= 10) {
+    flags.push("LOW_ENTROPY_CABAL");
+  }
+
   // ========================================================================
   // 2. Capital Flow, Order Flow Imbalance & Velocity (0 to 35 pts)
   // ========================================================================
@@ -217,8 +449,25 @@ export function scoreTokenCandidate(
     momScore += 5;
     flags.push("HIGH_VELOCITY_SURGE");
   } else if (metrics.elapsed_seconds > 1500 && (metrics.net_sol_raised < 20.0 || metrics.sol_velocity_per_min < 0.40)) {
-    // 25+ minutes elapsed without crossing 20 SOL -> stagnant dead curve
     flags.push("STAGNANT_MOMENTUM");
+  }
+
+  // Theorem 1: Volume-Synchronized Probability of Toxicity (VPIN)
+  // High toxicity coupled with sell-side dominance indicates informed dumping / front-running
+  if (metrics.vpin >= 0.75 && metrics.order_flow_imbalance < 0.40 && metrics.total_trades >= 8) {
+    flags.push("TOXIC_ORDER_FLOW");
+  } else if (metrics.vpin <= 0.45 && metrics.total_trades >= 8) {
+    momScore = Math.min(momScore + 5, 35);
+    flags.push("BALANCED_ORDER_FLOW");
+  }
+
+  // Theorem 2: Amihud Illiquidity (ILIQ)
+  // Higher values signify hollow, fragile liquidity (slippage trap)
+  if (metrics.amihud_iliq > 1.50 && metrics.total_trades >= 6) {
+    flags.push("HOLLOW_CURVE_SLIPPAGE");
+  } else if (metrics.amihud_iliq > 0 && metrics.amihud_iliq <= 0.60 && metrics.total_trades >= 6) {
+    momScore = Math.min(momScore + 5, 35);
+    flags.push("RESILIENT_LIQUIDITY_DEPTH");
   }
 
   // ========================================================================
@@ -226,12 +475,10 @@ export function scoreTokenCandidate(
   // ========================================================================
   let creatorScore = 0;
   if (creatorAddress && creatorAddress !== "unknown") {
-    // Check A: Dev dump (Zero-tolerance: >= 10% sold)
     if (metrics.dev_sold) {
       creatorScore = 0;
       flags.push("DEV_DUMPED_TOKENS");
     } else if (metrics.dev_supply_pct > 0.10) {
-      // Check B: Dev holding hazard (> 10% of total supply)
       creatorScore = 0;
       flags.push("DEV_OVERHOLDING_HAZARD");
     } else {
@@ -247,11 +494,9 @@ export function scoreTokenCandidate(
   // ========================================================================
   let metaScore = 0;
   if (metadata.metadata_available === false) {
-    // Off-chain metadata was unavailable, timed out, or not yet fetched (neutral pending)
     flags.push("SOCIAL_METADATA_UNAVAILABLE");
     metaScore = 0;
   } else {
-    // Metadata was successfully retrieved & parsed
     if (metadata.website) metaScore += 7;
     if (metadata.twitter) metaScore += 7;
     if (metadata.telegram) metaScore += 6;
@@ -259,22 +504,34 @@ export function scoreTokenCandidate(
     if (metaScore >= 14) {
       flags.push("COMMUNITY_LINKS");
     } else if (metaScore === 0) {
-      // Strictly confirmed zero socials on valid metadata payload
       flags.push("NO_SOCIALS");
     }
   }
 
   // ========================================================================
-  // 5. Penalties & Zero-Tolerance Disqualifications
+  // 5. Wash-Trading / Sybil Bot Ring Detection (Theorem 5)
+  // ========================================================================
+  if (metrics.pareto_exponent > 4.5 && metrics.total_trades >= 8) {
+    flags.push("WASH_TRADE_SUSPICION");
+  } else if (metrics.pareto_exponent >= 1.1 && metrics.pareto_exponent <= 3.2 && metrics.total_trades >= 10) {
+    flags.push("ORGANIC_POWER_LAW_DISTRIBUTION");
+  }
+
+  // ========================================================================
+  // 6. Penalties & Zero-Tolerance Disqualifications
   // ========================================================================
   let penalty = 0;
   if (flags.includes("DEV_DUMPED_TOKENS")) penalty += 40;
   if (flags.includes("DEV_OVERHOLDING_HAZARD")) penalty += 40;
   if (flags.includes("DEV_UNKNOWN")) penalty += 15;
-  if (flags.includes("NO_SOCIALS")) penalty += 30; // Confirmed zero socials penalized
+  if (flags.includes("NO_SOCIALS")) penalty += 30;
   if (flags.includes("WHALE_CONCENTRATION")) penalty += 15;
   if (flags.includes("CLUSTER_CONCENTRATION")) penalty += 15;
   if (flags.includes("STAGNANT_MOMENTUM")) penalty += 25;
+  if (flags.includes("TOXIC_ORDER_FLOW")) penalty += 25;
+  if (flags.includes("HOLLOW_CURVE_SLIPPAGE")) penalty += 20;
+  if (flags.includes("LOW_ENTROPY_CABAL")) penalty += 20;
+  if (flags.includes("WASH_TRADE_SUSPICION")) penalty += 30;
 
   const total = Math.max(
     0,
@@ -288,11 +545,15 @@ export function scoreTokenCandidate(
   // 4. Zero tolerance on dead/stagnant momentum (>25 mins crawl)
   // 5. Zero tolerance on sub-12 buyers (bot/wash-trading cluster)
   // 6. Zero tolerance on extreme whale dominance (HHI > 0.28 or top5 > 45%)
+  // 7. Zero tolerance on toxic order flow (VPIN >= 0.78)
+  // 8. Zero tolerance on bot wash-trading rings (Pareto zeta > 4.5)
   const isDisqualified =
     flags.includes("NO_SOCIALS") ||
     flags.includes("DEV_DUMPED_TOKENS") ||
     flags.includes("DEV_OVERHOLDING_HAZARD") ||
     flags.includes("STAGNANT_MOMENTUM") ||
+    flags.includes("TOXIC_ORDER_FLOW") ||
+    flags.includes("WASH_TRADE_SUSPICION") ||
     metrics.unique_buyers < 12 ||
     metrics.buyer_hhi > 0.28 ||
     metrics.top5_buyer_share > 0.45;

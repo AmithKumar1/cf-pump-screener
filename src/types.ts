@@ -57,6 +57,12 @@ export interface TokenMetrics {
   elapsed_seconds: number;
   sol_velocity_per_min: number;
   order_flow_imbalance: number;
+  // Advanced Quantitative & Microstructure Theorems
+  vpin: number;
+  amihud_iliq: number;
+  shannon_entropy: number;
+  kyle_lambda: number;
+  pareto_exponent: number;
 }
 
 export interface ScoreResult {

@@ -50,7 +50,11 @@ export function formatResearchCard(
   velocity: number = 0,
   top5Share: number = 0,
   devSupplyPct: number = 0,
-  ofi: number = 0
+  ofi: number = 0,
+  vpin: number = 0,
+  entropy: number = 0,
+  amihudIliq: number = 0,
+  paretoExp: number = 0
 ): string {
   const flagsStr = flags.length > 0 ? flags.join(" | ") : "Clean";
   const devStatus = devSold
@@ -70,6 +74,8 @@ export function formatResearchCard(
     `  • Inflow Velocity: ${velocity.toFixed(2)} SOL/min | OFI: ${(ofi * 100).toFixed(0)}% buys`,
     `  • Distribution: ${buyers} Unique Buyers | HHI: ${hhi.toFixed(3)}`,
     `  • Top 5 Buyer Share: ${(top5Share * 100).toFixed(1)}% volume`,
+    `  • Microstructure: VPIN ${(vpin * 100).toFixed(0)}% toxicity | Entropy: ${entropy.toFixed(2)}`,
+    `  • Curve Dynamics: ILIQ ${amihudIliq.toFixed(4)} | Pareto: ζ=${paretoExp.toFixed(2)}`,
     ``,
     `🏷️ Quantitative Flags:`,
     `  ${flagsStr}`,

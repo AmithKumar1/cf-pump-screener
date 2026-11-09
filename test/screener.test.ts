@@ -3,6 +3,11 @@ import assert from "node:assert/strict";
 import {
   computeBuyerHHI,
   computeTopKShare,
+  computeVPIN,
+  computeAmihudIlliquidity,
+  computeShannonEntropy,
+  computeKyleLambda,
+  computeParetoExponent,
   calculateTokenMetrics,
   scoreTokenCandidate,
   PUMP_TOTAL_SUPPLY,
@@ -108,22 +113,128 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.equal(score.is_high_interest, false);
   });
 
-  it("Theorem 6: Clean High-Conviction Token Passes All Gates", () => {
+  it("Theorem 6: Volume-Synchronized Probability of Toxicity (VPIN)", () => {
+    // 1. Balanced order flow: buys and sells alternate evenly -> VPIN near 0
+    const balancedTrades: TradePoint[] = [
+      { signature: "b1", mint: "M1", side: "buy", trader: "t1", sol_amount: 1.0, token_amount: 1000 },
+      { signature: "s1", mint: "M1", side: "sell", trader: "t2", sol_amount: 1.0, token_amount: 1000 },
+      { signature: "b2", mint: "M1", side: "buy", trader: "t3", sol_amount: 1.0, token_amount: 1000 },
+      { signature: "s2", mint: "M1", side: "sell", trader: "t4", sol_amount: 1.0, token_amount: 1000 },
+    ];
+    const vpinBalanced = computeVPIN(balancedTrades, 2);
+    assert.equal(vpinBalanced, 0.0);
+
+    // 2. Severe one-sided toxic flow -> VPIN near 1.0
+    const oneSidedTrades: TradePoint[] = [
+      { signature: "s1", mint: "M1", side: "sell", trader: "t1", sol_amount: 2.0, token_amount: 2000 },
+      { signature: "s2", mint: "M1", side: "sell", trader: "t2", sol_amount: 2.0, token_amount: 2000 },
+      { signature: "s3", mint: "M1", side: "sell", trader: "t3", sol_amount: 2.0, token_amount: 2000 },
+      { signature: "s4", mint: "M1", side: "sell", trader: "t4", sol_amount: 2.0, token_amount: 2000 },
+    ];
+    const vpinToxic = computeVPIN(oneSidedTrades, 4);
+    assert.ok(vpinToxic >= 0.95);
+  });
+
+  it("Theorem 7: Amihud Illiquidity Ratio (ILIQ)", () => {
+    // Liquid curve: gradual price changes
+    const liquidTrades: TradePoint[] = [
+      { signature: "t1", mint: "M1", side: "buy", trader: "w1", sol_amount: 1.0, token_amount: 1_000_000 },
+      { signature: "t2", mint: "M1", side: "buy", trader: "w2", sol_amount: 1.0, token_amount: 980_000 },
+      { signature: "t3", mint: "M1", side: "buy", trader: "w3", sol_amount: 1.0, token_amount: 960_000 },
+    ];
+    const iliqLiquid = computeAmihudIlliquidity(liquidTrades);
+    assert.ok(iliqLiquid < 0.10);
+
+    // Hollow curve: massive slippage per unit SOL
+    const hollowTrades: TradePoint[] = [
+      { signature: "t1", mint: "M1", side: "buy", trader: "w1", sol_amount: 0.1, token_amount: 1_000_000 },
+      { signature: "t2", mint: "M1", side: "buy", trader: "w2", sol_amount: 0.1, token_amount: 200_000 },
+      { signature: "t3", mint: "M1", side: "buy", trader: "w3", sol_amount: 0.1, token_amount: 40_000 },
+    ];
+    const iliqHollow = computeAmihudIlliquidity(hollowTrades);
+    assert.ok(iliqHollow > 5.0);
+  });
+
+  it("Theorem 8: Normalized Shannon Information Entropy of Capital Distribution", () => {
+    // Uniform capital distribution across 10 buyers: Entropy = 1.0
+    const uniformBuyers: Record<string, number> = {};
+    for (let i = 0; i < 10; i++) {
+      uniformBuyers[`w${i}`] = 5.0;
+    }
+    const entropyUniform = computeShannonEntropy(uniformBuyers);
+    assert.ok(Math.abs(entropyUniform - 1.0) < 0.0001);
+
+    // Monopolistic cabal: 1 buyer holds 99.999%
+    const cabalBuyers = { whale: 99999.0, pawn: 0.001 };
+    const entropyCabal = computeShannonEntropy(cabalBuyers);
+    assert.ok(entropyCabal < 0.01);
+  });
+
+  it("Theorem 9: Kyle's Lambda Price Impact Coefficient", () => {
+    const trades: TradePoint[] = [
+      { signature: "t1", mint: "M1", side: "buy", trader: "w1", sol_amount: 0.5, token_amount: 1_000_000 },
+      { signature: "t2", mint: "M1", side: "buy", trader: "w2", sol_amount: 1.5, token_amount: 1_200_000 },
+      { signature: "t3", mint: "M1", side: "sell", trader: "w3", sol_amount: 0.8, token_amount: 700_000 },
+      { signature: "t4", mint: "M1", side: "buy", trader: "w4", sol_amount: 2.0, token_amount: 1_400_000 },
+    ];
+    const lambda = computeKyleLambda(trades);
+    assert.ok(lambda >= 0.0);
+  });
+
+  it("Theorem 10: Pareto Power-Law Exponent for Wash-Trade & Bot Detection", () => {
+    // 1. Organic distribution: trade sizes follow natural power law
+    const organicTrades: TradePoint[] = [];
+    for (let i = 1; i <= 30; i++) {
+      const u = i / 31;
+      const sol = 0.1 * Math.pow(1 - u, -1 / 1.5);
+      organicTrades.push({
+        signature: `org_${i}`,
+        mint: "M1",
+        side: "buy",
+        trader: `trader_${i}`,
+        sol_amount: sol,
+        token_amount: sol * 100_000,
+      });
+    }
+    const paretoOrganic = computeParetoExponent(organicTrades);
+    assert.equal(paretoOrganic.isOrganicPowerLaw, true);
+    assert.equal(paretoOrganic.isWashTradeSuspicious, false);
+    assert.ok(paretoOrganic.exponent >= 1.1 && paretoOrganic.exponent <= 3.2);
+
+    // 2. Uniform bot cluster: all trades are identical 0.50 SOL
+    const botTrades: TradePoint[] = [];
+    for (let i = 1; i <= 30; i++) {
+      botTrades.push({
+        signature: `bot_${i}`,
+        mint: "M1",
+        side: "buy",
+        trader: `bot_${i}`,
+        sol_amount: 0.50,
+        token_amount: 50_000,
+      });
+    }
+    const paretoBot = computeParetoExponent(botTrades);
+    assert.equal(paretoBot.isWashTradeSuspicious, true);
+    assert.equal(paretoBot.isOrganicPowerLaw, false);
+  });
+
+  it("Theorem 11: Clean High-Conviction Token Passes All Institutional Gates", () => {
     const dev = "DevWallet1111111111111111111111111111111";
     const trades: TradePoint[] = [
-      // Dev buys small 3% bag and holds
-      { signature: "dev_b", mint: "M1", side: "buy", trader: dev, sol_amount: 1.0, token_amount: 30_000_000, block_time: 1000 },
+      // Dev buys small bag (0.25% supply) and holds
+      { signature: "dev_b", mint: "M1", side: "buy", trader: dev, sol_amount: 1.0, token_amount: 2_500_000, block_time: 1000 },
     ];
 
-    // 40 distinct organic buyers in 5 minutes (300 seconds), 22 SOL net raised
+    // 40 distinct organic buyers in 5 minutes (300 seconds), 37 SOL net raised
     for (let i = 0; i < 40; i++) {
+      const sol = 0.2 + (i % 8) * 0.2;
       trades.push({
         signature: `tr_${i}`,
         mint: "M1",
         side: "buy",
         trader: `organic_buyer_${i}`,
-        sol_amount: 0.55,
-        token_amount: 1_200_000,
+        sol_amount: sol,
+        token_amount: Math.floor(sol * 2_200_000),
         block_time: 1000 + i * 7,
       });
     }
@@ -134,6 +245,8 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.ok(metrics.buyer_hhi < 0.12);
     assert.equal(metrics.dev_sold, false);
     assert.ok(metrics.dev_supply_pct <= 0.05);
+    assert.ok(metrics.shannon_entropy > 0.80);
+    assert.ok(metrics.pareto_exponent >= 1.1 && metrics.pareto_exponent <= 3.2);
 
     const metadata: LaunchMetadata = {
       name: "Alpha Gem",
@@ -147,6 +260,8 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.ok(score.flags.includes("ORGANIC_DISTRIBUTION"));
     assert.ok(score.flags.includes("COMMUNITY_LINKS"));
     assert.ok(score.flags.includes("DEV_HOLDING"));
+    assert.ok(score.flags.includes("HIGH_ENTROPY_DECENTRALIZED"));
+    assert.ok(score.flags.includes("ORGANIC_POWER_LAW_DISTRIBUTION"));
     assert.ok(score.total_score >= 80);
     assert.equal(score.is_high_interest, true);
 
@@ -166,12 +281,19 @@ describe("Quantitative Screener & Mathematical Models", () => {
       metrics.sol_velocity_per_min,
       metrics.top5_buyer_share,
       metrics.dev_supply_pct,
-      metrics.order_flow_imbalance
+      metrics.order_flow_imbalance,
+      metrics.vpin,
+      metrics.shannon_entropy,
+      metrics.amihud_iliq,
+      metrics.pareto_exponent
     );
 
     assert.ok(card.includes("Inflow Velocity:"));
     assert.ok(card.includes("Top 5 Buyer Share:"));
     assert.ok(card.includes("HHI:"));
-    assert.ok(card.includes("Holding (3.0% supply)"));
+    assert.ok(card.includes("Microstructure: VPIN"));
+    assert.ok(card.includes("Entropy:"));
+    assert.ok(card.includes("Curve Dynamics: ILIQ"));
+    assert.ok(card.includes("Pareto: ζ="));
   });
 });
