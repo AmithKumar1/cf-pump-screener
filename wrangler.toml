@@ -16,7 +16,7 @@ database_id = "42fa42b0-db96-4dd8-877b-dcde17bbef60"
 
 # Public configuration variables
 [vars]
-MIN_ALERT_SCORE = "65"
+MIN_ALERT_SCORE = "75"
 
 # Secrets must be configured exclusively via `npx wrangler secret put <NAME>`:
 # - WEBHOOK_SECRET (high-entropy key for webhook & alert authentication)

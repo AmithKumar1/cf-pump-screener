@@ -239,8 +239,16 @@ async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
 
   // 3. Calculate metrics & score
   const metrics = calculateTokenMetrics(trades, creator);
-  const minScore = Number(env.MIN_ALERT_SCORE || 65);
-  const score = scoreTokenCandidate(metadata, metrics, minScore);
+  const minScore = Number(env.MIN_ALERT_SCORE || 75);
+  const score = scoreTokenCandidate(metadata, metrics, minScore, creator);
+
+  // Gate 1 & 2 Hard Filters for Quality Intelligence:
+  // A. Reject anonymous tokens with no verified social or community links
+  if (score.flags.includes("NO_SOCIALS")) return;
+  // B. Require at least 15 SOL net capital inflow to filter out micro-noise
+  if (metrics.net_sol_raised < 15.0) return;
+  // C. Disqualify if dev dumped tokens
+  if (score.flags.includes("DEV_DUMPED_TOKENS")) return;
 
   if (!score.is_high_interest) return;
 

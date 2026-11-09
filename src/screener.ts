@@ -97,7 +97,8 @@ export function calculateTokenMetrics(
 export function scoreTokenCandidate(
   metadata: LaunchMetadata,
   metrics: TokenMetrics,
-  highInterestThreshold: number = 65.0
+  highInterestThreshold: number = 75.0,
+  creatorAddress: string = "unknown"
 ): ScoreResult {
   const flags: string[] = [];
 
@@ -142,12 +143,17 @@ export function scoreTokenCandidate(
   }
 
   // 3. Creator Trust Score (0 to 20 pts)
-  let creatorScore = 15;
-  if (metrics.dev_sold) {
-    creatorScore = 0;
-    flags.push("DEV_DUMPED_TOKENS");
+  let creatorScore = 0;
+  if (creatorAddress && creatorAddress !== "unknown") {
+    if (metrics.dev_sold) {
+      creatorScore = 0;
+      flags.push("DEV_DUMPED_TOKENS");
+    } else {
+      creatorScore = 15;
+      flags.push("DEV_HOLDING");
+    }
   } else {
-    flags.push("DEV_HOLDING");
+    flags.push("DEV_UNKNOWN");
   }
 
   // 4. Social Metadata Score (0 to 20 pts)
@@ -162,10 +168,12 @@ export function scoreTokenCandidate(
   // Penalties
   let penalty = 0;
   if (flags.includes("DEV_DUMPED_TOKENS")) penalty += 35;
+  if (flags.includes("DEV_UNKNOWN")) penalty += 15; // Unknown dev penalty
+  if (flags.includes("NO_SOCIALS")) penalty += 15;  // Anonymous/no socials penalty
   if (flags.includes("WHALE_CONCENTRATION") && metrics.total_trades > 10) penalty += 15;
 
   const total = Math.max(0, Math.min(100, decScore + momScore + creatorScore + metaScore - penalty));
-  const isHigh = total >= highInterestThreshold && !flags.includes("DEV_DUMPED_TOKENS");
+  const isHigh = total >= highInterestThreshold && !flags.includes("DEV_DUMPED_TOKENS") && !flags.includes("NO_SOCIALS");
 
   return {
     total_score: Math.round(total * 10) / 10,

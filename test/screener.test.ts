@@ -61,9 +61,9 @@ test("scoreTokenCandidate rewards organic distribution and penalizes dev dump", 
     curve_progress_pct: 29.4,
   };
 
-  const scoreResult = scoreTokenCandidate(meta, organicMetrics, 65);
+  const scoreResult = scoreTokenCandidate(meta, organicMetrics, 75, "DevWallet");
   assert.strictEqual(scoreResult.is_high_interest, true);
-  assert.ok(scoreResult.total_score >= 70);
+  assert.ok(scoreResult.total_score >= 75);
   assert.ok(scoreResult.flags.includes("ORGANIC_DISTRIBUTION"));
   assert.ok(scoreResult.flags.includes("DEV_HOLDING"));
 });
