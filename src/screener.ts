@@ -246,14 +246,22 @@ export function scoreTokenCandidate(
   // 4. Social Metadata & Narrative Presence (0 to 20 pts)
   // ========================================================================
   let metaScore = 0;
-  if (metadata.website) metaScore += 7;
-  if (metadata.twitter) metaScore += 7;
-  if (metadata.telegram) metaScore += 6;
+  if (metadata.metadata_available === false) {
+    // Off-chain metadata was unavailable, timed out, or not yet fetched (neutral pending)
+    flags.push("SOCIAL_METADATA_UNAVAILABLE");
+    metaScore = 0;
+  } else {
+    // Metadata was successfully retrieved & parsed
+    if (metadata.website) metaScore += 7;
+    if (metadata.twitter) metaScore += 7;
+    if (metadata.telegram) metaScore += 6;
 
-  if (metaScore >= 14) {
-    flags.push("COMMUNITY_LINKS");
-  } else if (metaScore === 0) {
-    flags.push("NO_SOCIALS");
+    if (metaScore >= 14) {
+      flags.push("COMMUNITY_LINKS");
+    } else if (metaScore === 0) {
+      // Strictly confirmed zero socials on valid metadata payload
+      flags.push("NO_SOCIALS");
+    }
   }
 
   // ========================================================================
@@ -263,7 +271,7 @@ export function scoreTokenCandidate(
   if (flags.includes("DEV_DUMPED_TOKENS")) penalty += 40;
   if (flags.includes("DEV_OVERHOLDING_HAZARD")) penalty += 40;
   if (flags.includes("DEV_UNKNOWN")) penalty += 15;
-  if (flags.includes("NO_SOCIALS")) penalty += 30;
+  if (flags.includes("NO_SOCIALS")) penalty += 30; // Confirmed zero socials penalized
   if (flags.includes("WHALE_CONCENTRATION")) penalty += 15;
   if (flags.includes("CLUSTER_CONCENTRATION")) penalty += 15;
   if (flags.includes("STAGNANT_MOMENTUM")) penalty += 25;

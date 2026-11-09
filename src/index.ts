@@ -2,6 +2,8 @@ import type { Env, LaunchMetadata, TradePoint } from "./types.ts";
 import { calculateTokenMetrics, scoreTokenCandidate } from "./screener.ts";
 import { formatResearchCard, sendTelegramMessage } from "./telegram.ts";
 import { runHealthCheck } from "./monitor.ts";
+import { parseHeliusCreate, parseHeliusSwap } from "./parser.ts";
+import { fetchTokenMetadata } from "./metadata.ts";
 
 function extractAuthToken(request: Request, url: URL): string | null {
   // 1. Authorization header: "Bearer <token>" or raw token (Helius Authentication Header)
@@ -88,7 +90,53 @@ export default {
         const mintsToEvaluate = new Set<string>();
 
         for (const item of events) {
-          // A. Standard PumpPortal / Direct Format: New Token
+          // 1. Primary: Helius Enhanced Create Transaction (CreateV2)
+          const heliusCreate = parseHeliusCreate(item);
+          if (heliusCreate && heliusCreate.kind === "create_v2" && heliusCreate.mint) {
+            const rawJsonCapped = JSON.stringify(item).slice(0, 32768);
+            dbStatements.push(
+              env.DB.prepare(
+                `INSERT INTO events (received_at, kind, mint, creator, bonding_curve, name, symbol, uri, twitter, telegram, website, raw_json)
+                 VALUES (?, 'new_token', ?, ?, ?, ?, ?, ?, NULL, NULL, NULL, ?)`
+              ).bind(
+                nowMs,
+                heliusCreate.mint,
+                heliusCreate.creator || "unknown",
+                heliusCreate.bondingCurve || "",
+                heliusCreate.name || "",
+                heliusCreate.symbol || "",
+                heliusCreate.uri || "",
+                rawJsonCapped
+              )
+            );
+            if (heliusCreate.uri) {
+              ctx.waitUntil(resolveMetadataForToken(heliusCreate.mint, heliusCreate.uri, env));
+            }
+            continue;
+          }
+
+          // 2. Primary: Helius Enhanced Swap Transaction
+          const heliusSwap = parseHeliusSwap(item);
+          if (heliusSwap && heliusSwap.mint && heliusSwap.sol_amount > 0) {
+            dbStatements.push(
+              env.DB.prepare(
+                `INSERT OR IGNORE INTO trades (signature, mint, side, trader, sol_amount, token_amount, block_time)
+                 VALUES (?, ?, ?, ?, ?, ?, ?)`
+              ).bind(
+                heliusSwap.signature,
+                heliusSwap.mint,
+                heliusSwap.side,
+                heliusSwap.trader,
+                heliusSwap.sol_amount,
+                heliusSwap.token_amount,
+                heliusSwap.block_time
+              )
+            );
+            mintsToEvaluate.add(heliusSwap.mint);
+            continue;
+          }
+
+          // 3. Fallback: Standard PumpPortal / Direct Format: New Token
           if (item.txType === "create" || item.kind === "new_token") {
             const mint = item.mint;
             if (!mint) continue;
@@ -107,12 +155,12 @@ export default {
               env.DB.prepare(
                 `INSERT INTO events (received_at, kind, mint, creator, bonding_curve, name, symbol, uri, twitter, telegram, website, raw_json)
                  VALUES (?, 'new_token', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-              ).bind(nowMs, mint, creator, bondingCurve, name, symbol, uri, twitter, telegram, website, JSON.stringify(item))
+              ).bind(nowMs, mint, creator, bondingCurve, name, symbol, uri, twitter, telegram, website, JSON.stringify(item).slice(0, 32768))
             );
             continue;
           }
 
-          // B. Standard PumpPortal / Direct Format: Trade
+          // 4. Fallback: Standard PumpPortal / Direct Format: Trade
           if (item.txType === "buy" || item.txType === "sell" || item.side) {
             const signature = item.signature || `sig_${nowMs}_${Math.random().toString(36).slice(2, 8)}`;
             const mint = item.mint;
@@ -132,45 +180,6 @@ export default {
 
             mintsToEvaluate.add(mint);
             continue;
-          }
-
-          // C. Helius Enhanced Transaction Format
-          if (item.events && item.events.swap) {
-            const swap = item.events.swap;
-            const signature = item.signature;
-            const blockTime = item.timestamp || Math.floor(nowMs / 1000);
-            const trader = item.feePayer || "unknown";
-
-            let side: "buy" | "sell" = "buy";
-            let mint = "";
-            let solAmount = 0;
-            let tokenAmount = 0;
-
-            if (swap.nativeInput) {
-              side = "buy";
-              solAmount = Number(swap.nativeInput.amount || 0) / 1e9;
-              if (swap.tokenOutputs && swap.tokenOutputs[0]) {
-                mint = swap.tokenOutputs[0].mint;
-                tokenAmount = Number(swap.tokenOutputs[0].rawTokenAmount?.tokenAmount || 0) / 1e6;
-              }
-            } else if (swap.nativeOutput) {
-              side = "sell";
-              solAmount = Number(swap.nativeOutput.amount || 0) / 1e9;
-              if (swap.tokenInputs && swap.tokenInputs[0]) {
-                mint = swap.tokenInputs[0].mint;
-                tokenAmount = Number(swap.tokenInputs[0].rawTokenAmount?.tokenAmount || 0) / 1e6;
-              }
-            }
-
-            if (mint && solAmount > 0) {
-              dbStatements.push(
-                env.DB.prepare(
-                  `INSERT OR IGNORE INTO trades (signature, mint, side, trader, sol_amount, token_amount, block_time)
-                   VALUES (?, ?, ?, ?, ?, ?, ?)`
-                ).bind(signature, mint, side, trader, solAmount, tokenAmount, blockTime)
-              );
-              mintsToEvaluate.add(mint);
-            }
           }
         }
 
@@ -203,6 +212,42 @@ export default {
 };
 
 /**
+ * Asynchronously fetch and store off-chain social metadata for a newly launched token.
+ */
+export async function resolveMetadataForToken(mint: string, uri: string, env: Env): Promise<void> {
+  try {
+    const meta = await fetchTokenMetadata(uri);
+    if (!meta.isAvailable) {
+      return;
+    }
+
+    // Persist verified metadata back to D1 events table
+    // Non-null empty strings indicate metadata was fetched and verified (empty socials vs un-fetched null)
+    await env.DB.prepare(
+      `UPDATE events
+       SET twitter = ?,
+           telegram = ?,
+           website = ?,
+           name = COALESCE(NULLIF(name, ''), ?),
+           symbol = COALESCE(NULLIF(symbol, ''), '')
+       WHERE mint = ? AND kind = 'new_token'`
+    )
+      .bind(
+        meta.twitter ?? "",
+        meta.telegram ?? "",
+        meta.website ?? "",
+        meta.name ?? "",
+        meta.symbol ?? "",
+        mint
+      )
+      .run();
+  } catch (err: unknown) {
+    // Non-fatal background fetch error
+    console.error(`Metadata resolution failed for mint ${mint}:`, err);
+  }
+}
+
+/**
  * On-chain evaluation and Telegram alert trigger
  */
 async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
@@ -223,18 +268,27 @@ async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
   const trades = tradeRows.results || [];
   if (trades.length < 8) return; // Wait for at least 8 trades to establish distribution profile
 
+  // If eventRow exists and at least one social field is non-null (even empty string ""),
+  // off-chain metadata has been resolved.
+  const hasMetadataResolved =
+    eventRow &&
+    (eventRow.twitter !== null || eventRow.telegram !== null || eventRow.website !== null);
+
   const creator = eventRow ? eventRow.creator : "unknown";
   const metadata: LaunchMetadata = eventRow
     ? {
         name: eventRow.name,
         symbol: eventRow.symbol,
+        uri: eventRow.uri,
         twitter: eventRow.twitter,
         telegram: eventRow.telegram,
         website: eventRow.website,
+        metadata_available: Boolean(hasMetadataResolved),
       }
     : {
         name: "Pump Token",
         symbol: mint.slice(0, 6).toUpperCase(),
+        metadata_available: false,
       };
 
   // 3. Calculate metrics & score

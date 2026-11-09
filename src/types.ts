@@ -10,10 +10,11 @@ export interface LaunchMetadata {
   name?: string;
   symbol?: string;
   uri?: string;
-  twitter?: string;
-  telegram?: string;
-  website?: string;
-  description?: string;
+  twitter?: string | null;
+  telegram?: string | null;
+  website?: string | null;
+  description?: string | null;
+  metadata_available?: boolean;
 }
 
 export interface LaunchCandidate {

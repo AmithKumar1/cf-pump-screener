@@ -2,3 +2,6 @@ node_modules/
 .wrangler/
 .env
 dist/
+*.zip
+/launch.json
+/swap.json
