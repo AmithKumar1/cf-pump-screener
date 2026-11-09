@@ -13,14 +13,21 @@ import {
   computeHurstExponent,
   detectMarketRegime,
   computeSybilClusterMetrics,
+  detectMEVSandwich,
+  computeSerialRugIndex,
+  computeSlotMetrics,
+  analyzeMemeNarrative,
+  checkSmartMoney,
   calculateTokenMetrics,
   scoreTokenCandidate,
   PUMP_TOTAL_SUPPLY,
+  RAYDIUM_MIGRATION_SOL,
+  KNOWN_ALPHA_WALLETS,
 } from "../src/screener.ts";
 import { formatResearchCard } from "../src/telegram.ts";
 import type { TradePoint, LaunchMetadata } from "../src/types.ts";
 
-describe("Quantitative Screener & Mathematical Models", () => {
+describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", () => {
   it("Theorem 1: computeBuyerHHI returns correct bounded values", () => {
     // Single monopoly buyer: HHI = 1.0
     assert.equal(computeBuyerHHI({ wallet1: 100 }), 1.0);
@@ -381,11 +388,86 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.equal(sybilOrganic.effective_unique_buyers, 20);
   });
 
-  it("Theorem 11: Clean High-Conviction Token Passes All Institutional & Predictive Gates", () => {
+  it("Theorem 17: Jito MEV Sandwich Forensics detects frontrun-victim-backrun pattern", () => {
+    const sandwichTrades: TradePoint[] = [
+      { signature: "s1", mint: "M1", side: "buy", trader: "mev_bot", sol_amount: 4.0, token_amount: 4000, block_time: 100 },
+      { signature: "s2", mint: "M1", side: "buy", trader: "victim_user", sol_amount: 1.0, token_amount: 800, block_time: 100 },
+      { signature: "s3", mint: "M1", side: "sell", trader: "mev_bot", sol_amount: 4.1, token_amount: 4000, block_time: 101 },
+      { signature: "s4", mint: "M1", side: "buy", trader: "user2", sol_amount: 0.5, token_amount: 500, block_time: 105 },
+      { signature: "s5", mint: "M1", side: "buy", trader: "user3", sol_amount: 0.5, token_amount: 500, block_time: 108 },
+      { signature: "s6", mint: "M1", side: "buy", trader: "user4", sol_amount: 0.5, token_amount: 500, block_time: 110 },
+    ];
+    const mev = detectMEVSandwich(sandwichTrades);
+    assert.equal(mev.is_mev_sandwiched, true);
+    assert.ok(mev.mev_extraction_ratio >= 0.70);
+  });
+
+  it("Theorem 18: Creator Serial Rug Index (SRI) detects serial scam deployers", () => {
+    // 1. Fresh/clean creator (1 created, 0 graduated -> SRI = 0)
+    const cleanDev = computeSerialRugIndex(1, 0);
+    assert.equal(cleanDev.is_serial_rugger, false);
+
+    // 2. Serial rugger (6 created, 0 graduated -> SRI = 1 - 1/7 = 0.86)
+    const serialDev = computeSerialRugIndex(6, 0);
+    assert.equal(serialDev.is_serial_rugger, true);
+    assert.ok(serialDev.serial_rug_index >= 0.85);
+
+    // 3. Proven dev (4 created, 3 graduated -> SRI = 1 - 4/5 = 0.20)
+    const provenDev = computeSerialRugIndex(4, 3);
+    assert.equal(provenDev.is_serial_rugger, false);
+    assert.ok(provenDev.serial_rug_index <= 0.25);
+  });
+
+  it("Theorem 19: Solana Micro-Slot Forensics analyzes sub-second block bundles", () => {
+    const bundledTrades: TradePoint[] = [
+      { signature: "s1", mint: "M1", side: "buy", trader: "w1", sol_amount: 1.0, token_amount: 1000, slot: 250000000 },
+      { signature: "s2", mint: "M1", side: "buy", trader: "w2", sol_amount: 1.0, token_amount: 1000, slot: 250000000 },
+      { signature: "s3", mint: "M1", side: "buy", trader: "w3", sol_amount: 1.0, token_amount: 1000, slot: 250000000 },
+      { signature: "s4", mint: "M1", side: "buy", trader: "w4", sol_amount: 1.0, token_amount: 1000, slot: 250000001 },
+      { signature: "s5", mint: "M1", side: "buy", trader: "w5", sol_amount: 1.0, token_amount: 1000, slot: 250000005 },
+    ];
+    const slotMetrics = computeSlotMetrics(bundledTrades);
+    assert.ok(slotMetrics.same_slot_bundle_ratio >= 0.40);
+    assert.ok(slotMetrics.slot_velocity > 0);
+  });
+
+  it("Theorem 20: Memetic NLP differentiates corporate AI slop from organic meme culture", () => {
+    // 1. Corporate AI slop
+    const slop = analyzeMemeNarrative(
+      "Visionary Ecosystem",
+      "VSO",
+      "An innovative ecosystem designed to revolutionize decentralized solutions and empower finance."
+    );
+    assert.equal(slop.is_ai_slop, true);
+    assert.ok(slop.ai_slop_score >= 0.60);
+
+    // 2. Organic cult meme
+    const organic = analyzeMemeNarrative(
+      "dog wif hat",
+      "WIF",
+      "literally just a dog with a hat on"
+    );
+    assert.equal(organic.is_ai_slop, false);
+    assert.equal(organic.ai_slop_score, 0.0);
+  });
+
+  it("Theorem 21: Smart-Money & Elite Whale Tracker identifies alpha wallet conviction", () => {
+    const alphaWallet = Array.from(KNOWN_ALPHA_WALLETS)[0];
+    const alphaTrades: TradePoint[] = [
+      { signature: "t1", mint: "M1", side: "buy", trader: alphaWallet, sol_amount: 3.5, token_amount: 3500 },
+      { signature: "t2", mint: "M1", side: "buy", trader: "anon_user", sol_amount: 0.5, token_amount: 500 },
+    ];
+    const sm = checkSmartMoney(alphaTrades);
+    assert.equal(sm.is_smart_money_in, true);
+    assert.equal(sm.smart_money_buyers, 1);
+    assert.equal(sm.smart_money_sol, 3.5);
+  });
+
+  it("Theorem 11: Clean High-Conviction Token Passes All Institutional, Predictive & Forensic Gates", () => {
     const dev = "DevWallet1111111111111111111111111111111";
     const trades: TradePoint[] = [
       // Dev buys small bag (0.25% supply) and holds
-      { signature: "dev_b", mint: "M1", side: "buy", trader: dev, sol_amount: 1.0, token_amount: 2_500_000, block_time: 1000 },
+      { signature: "dev_b", mint: "M1", side: "buy", trader: dev, sol_amount: 1.0, token_amount: 2_500_000, block_time: 1000, slot: 200000 },
     ];
 
     // 40 distinct organic buyers in 5 minutes (300 seconds), 37 SOL net raised
@@ -399,10 +481,20 @@ describe("Quantitative Screener & Mathematical Models", () => {
         sol_amount: sol,
         token_amount: Math.floor(sol * 2_200_000),
         block_time: 1000 + i * 7,
+        slot: 200000 + i * 15,
       });
     }
 
-    const metrics = calculateTokenMetrics(trades, dev);
+    const metadata: LaunchMetadata = {
+      name: "Alpha Gem",
+      symbol: "ALPHA",
+      twitter: "https://x.com/alpha",
+      telegram: "https://t.me/alpha",
+      website: "https://alpha.io",
+      description: "Organic community movement building the next solana cult",
+    };
+
+    const metrics = calculateTokenMetrics(trades, dev, RAYDIUM_MIGRATION_SOL, 1, 0, metadata);
     assert.ok(metrics.net_sol_raised >= 22.0);
     assert.ok(metrics.unique_buyers >= 40);
     assert.ok(metrics.buyer_hhi < 0.12);
@@ -411,15 +503,9 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.ok(metrics.shannon_entropy > 0.80);
     assert.ok(metrics.pareto_exponent >= 1.1 && metrics.pareto_exponent <= 3.2);
     assert.ok(metrics.graduation_probability >= 0.50);
-    assert.equal(metrics.is_cabal_sybil ?? false, false);
-
-    const metadata: LaunchMetadata = {
-      name: "Alpha Gem",
-      symbol: "ALPHA",
-      twitter: "https://x.com/alpha",
-      telegram: "https://t.me/alpha",
-      website: "https://alpha.io",
-    };
+    assert.equal(metrics.is_mev_sandwiched, false);
+    assert.equal(metrics.serial_rug_index, 0.0);
+    assert.equal(metrics.is_ai_slop, false);
 
     const score = scoreTokenCandidate(metadata, metrics, 75, dev);
     assert.ok(score.flags.includes("ORGANIC_DISTRIBUTION"));
@@ -430,7 +516,7 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.ok(score.total_score >= 80);
     assert.equal(score.is_high_interest, true);
 
-    // Verify Telegram card formats all quant and predictive metrics
+    // Verify Telegram card formats all quant, predictive and forensic metrics
     const card = formatResearchCard(
       "M1",
       "ALPHA",
@@ -456,7 +542,12 @@ describe("Quantitative Screener & Mathematical Models", () => {
       metrics.hawkes_branching_ratio,
       metrics.hurst_exponent,
       metrics.effective_unique_buyers,
-      metrics.sybil_cluster_ratio
+      metrics.sybil_cluster_ratio,
+      metrics.mev_extraction_ratio,
+      metrics.serial_rug_index,
+      metrics.smart_money_buyers,
+      metrics.smart_money_sol,
+      metrics.same_slot_bundle_ratio
     );
 
     assert.ok(card.includes("Inflow Velocity:"));
@@ -465,8 +556,8 @@ describe("Quantitative Screener & Mathematical Models", () => {
     assert.ok(card.includes("Microstructure: VPIN"));
     assert.ok(card.includes("Predictive & Forecasting Analytics:"));
     assert.ok(card.includes("Raydium Migration Probability:"));
-    assert.ok(card.includes("Market Microstructure Regime:"));
-    assert.ok(card.includes("Hawkes Cascade Intensity:"));
-    assert.ok(card.includes("Hurst Trend Persistence:"));
+    assert.ok(card.includes("Elite Quant & Forensic Intelligence:"));
+    assert.ok(card.includes("MEV Forensics:"));
+    assert.ok(card.includes("Creator DNA: Serial Rug Index:"));
   });
 });

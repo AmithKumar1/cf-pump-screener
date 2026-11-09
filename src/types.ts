@@ -26,6 +26,7 @@ export interface LaunchCandidate {
   bonding_curve?: string;
   metadata: LaunchMetadata;
   raw_json?: string;
+  slot?: number;
 }
 
 export interface TradePoint {
@@ -36,6 +37,7 @@ export interface TradePoint {
   sol_amount: number;
   token_amount: number;
   block_time?: number;
+  slot?: number;
 }
 
 export interface TokenMetrics {
@@ -73,6 +75,17 @@ export interface TokenMetrics {
   distribution_risk_pct: number;
   sybil_cluster_ratio: number;
   effective_unique_buyers: number;
+  // Frontier Quantitative Intelligence
+  mev_extraction_ratio: number;
+  is_mev_sandwiched: boolean;
+  serial_rug_index: number;
+  same_slot_bundle_ratio: number;
+  slot_velocity: number;
+  ai_slop_score: number;
+  is_ai_slop: boolean;
+  smart_money_buyers: number;
+  smart_money_sol: number;
+  is_smart_money_in: boolean;
 }
 
 export interface ScoreResult {

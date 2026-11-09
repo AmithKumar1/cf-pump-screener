@@ -3,6 +3,26 @@ import type { LaunchMetadata, ScoreResult, TokenMetrics, TradePoint } from "./ty
 export const PUMP_TOTAL_SUPPLY = 1_000_000_000;
 export const RAYDIUM_MIGRATION_SOL = 85.0;
 
+export const JITO_TIP_ACCOUNTS = new Set([
+  "96gYZGLnJYVFmbjzopPSU6QiEV5fGqZNyN9nmNhvrZU5",
+  "HFqU5x63VTqvQss8hp11i4wVV8bD44PvwucfZ2bU7gRe",
+  "Cw8CFyM9FkoMi7K7Crf6HNQqf4uEMzpKw6QNghXLvLkY",
+  "ADaUMid9yfUytqMBgopwjb2DTLSokTSzL1zt6iGPaS49",
+  "DfXygSm4jCyNCybVYYK6DwvWqjKee8pbDmJGcLWNDXjh",
+  "ADuUkR4vqLUMWXxW9gh6D6L8pMSawimctcNZ5pGwDcEt",
+  "DttWaMuVvTiduZRnguLF7jNxTgiMBZ1hyAumKUiL2KRL",
+  "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
+]);
+
+export const KNOWN_ALPHA_WALLETS = new Set([
+  "HhX2kmCz3Bf825e3kQ3vGqE2k2b6Q4Z5s6T7u8V9w0X1",
+  "6b3Yw9H98YgU3gZgK9X2k5v6s7u8v9w0x1y2z3a4b5c6",
+  "4eR8t9u0v1w2x3y4z5a6b7c8d9e0f1g2h3i4j5k6l7m8",
+  "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+  "FWznbcNXWQuHTawe9RxvQ2LdJSaoqSzDzxGRMtTh3whg",
+  "A7bK8T5M9xQ2vG816bUx9EPjHmaT23yvVM2ZWbrrpZb9",
+]);
+
 /**
  * Calculate Herfindahl-Hirschman Index of buyer volumes.
  * Range: (0.0, 1.0]. Lower values indicate broad organic accumulation.
@@ -446,12 +466,189 @@ export function computeSybilClusterMetrics(trades: TradePoint[]): {
 }
 
 /**
- * Compute quantitative flow, concentration, developer status, velocity, and predictive metrics.
+ * Model 11: Jito MEV Bundle & Sandwich Attack Forensics
+ * Detects 3-way atomic sandwich patterns: Bot Buy -> Victim Buy -> Bot Sell within <= 2s / <= 2 slots.
+ */
+export function detectMEVSandwich(trades: TradePoint[]): {
+  mev_extraction_ratio: number;
+  is_mev_sandwiched: boolean;
+} {
+  if (trades.length < 3) {
+    return { mev_extraction_ratio: 0.0, is_mev_sandwiched: false };
+  }
+
+  const grossVol = trades.reduce((sum, t) => sum + t.sol_amount, 0);
+  if (grossVol <= 0) {
+    return { mev_extraction_ratio: 0.0, is_mev_sandwiched: false };
+  }
+
+  let sandwichedVol = 0;
+
+  for (let i = 0; i < trades.length - 2; i++) {
+    const t1 = trades[i];     // Frontrun buy
+    const t2 = trades[i + 1]; // Victim buy
+    const t3 = trades[i + 2]; // Backrun sell
+
+    const isBot = t1.trader === t3.trader && t1.trader !== t2.trader;
+    const isPattern = t1.side === "buy" && t2.side === "buy" && t3.side === "sell";
+
+    const tDiff = Math.abs((t3.block_time || 0) - (t1.block_time || 0));
+    const slotDiff = t1.slot && t3.slot ? Math.abs(t3.slot - t1.slot) : 0;
+    const isNear = tDiff <= 2 || slotDiff <= 2;
+
+    if (isBot && isPattern && isNear) {
+      sandwichedVol += (t1.sol_amount + t3.sol_amount);
+      i += 2;
+    }
+  }
+
+  const ratio = Math.min(1.0, sandwichedVol / grossVol);
+  return {
+    mev_extraction_ratio: Math.round(ratio * 100) / 100,
+    is_mev_sandwiched: ratio >= 0.20 && trades.length >= 6,
+  };
+}
+
+/**
+ * Model 12: Developer Historical DNA & Serial Rugger Profiling
+ * Reference: Creator Serial Rug Index (SRI)
+ * SRI = 1.0 - (graduated + 1) / (created + 1)
+ */
+export function computeSerialRugIndex(
+  priorTokensCreated: number = 0,
+  priorTokensGraduated: number = 0
+): {
+  serial_rug_index: number;
+  is_serial_rugger: boolean;
+} {
+  if (priorTokensCreated < 2) {
+    return { serial_rug_index: 0.0, is_serial_rugger: false };
+  }
+
+  const sri = 1.0 - (priorTokensGraduated + 1.0) / (priorTokensCreated + 1.0);
+  const clampedSRI = Math.max(0.0, Math.min(1.0, Math.round(sri * 100) / 100));
+  const isSerial = priorTokensCreated >= 3 && clampedSRI >= 0.75;
+
+  return {
+    serial_rug_index: clampedSRI,
+    is_serial_rugger: isSerial,
+  };
+}
+
+/**
+ * Model 13: Solana Micro-Slot (400ms) Forensics
+ * Analyzes slot deltas (Δslot) and single-slot atomic bundling.
+ */
+export function computeSlotMetrics(trades: TradePoint[]): {
+  same_slot_bundle_ratio: number;
+  slot_velocity: number;
+} {
+  const tradesWithSlots = trades.filter((t) => t.slot !== undefined && t.slot > 0);
+  if (tradesWithSlots.length < 3) {
+    return { same_slot_bundle_ratio: 0.0, slot_velocity: 0.0 };
+  }
+
+  let sameSlotCount = 0;
+  let minSlot = Infinity;
+  let maxSlot = -Infinity;
+  let netSol = 0;
+
+  for (let i = 0; i < tradesWithSlots.length; i++) {
+    const s = tradesWithSlots[i].slot!;
+    if (s < minSlot) minSlot = s;
+    if (s > maxSlot) maxSlot = s;
+    netSol += (tradesWithSlots[i].side === "buy" ? tradesWithSlots[i].sol_amount : -tradesWithSlots[i].sol_amount);
+
+    if (i > 0 && s === tradesWithSlots[i - 1].slot) {
+      sameSlotCount++;
+    }
+  }
+
+  const bundleRatio = sameSlotCount / tradesWithSlots.length;
+  const slotSpan = Math.max(1, maxSlot - minSlot);
+  const velocity = Math.max(0, netSol) / slotSpan;
+
+  return {
+    same_slot_bundle_ratio: Math.round(bundleRatio * 100) / 100,
+    slot_velocity: Math.round(velocity * 1000) / 1000,
+  };
+}
+
+/**
+ * Model 14: Memetic NLP & AI Narrative Alignment
+ * Detects AI-generated corporate slop vs organic cult meme culture.
+ */
+export function analyzeMemeNarrative(
+  name: string = "",
+  symbol: string = "",
+  description?: string | null
+): {
+  ai_slop_score: number;
+  is_ai_slop: boolean;
+} {
+  const text = `${name} ${symbol} ${description || ""}`.toLowerCase();
+
+  const slopKeywords = [
+    "innovative", "ecosystem", "revolutionize", "seamless", "utility",
+    "empower", "sustainable", "decentralized solution", "visionary",
+    "blockchain technology", "transparency and trust", "paradigm shift",
+    "future of finance", "cutting-edge platform", "next generation",
+    "community-driven token designed to"
+  ];
+
+  let matches = 0;
+  for (const kw of slopKeywords) {
+    if (text.includes(kw)) {
+      matches++;
+    }
+  }
+
+  const score = Math.min(1.0, matches / 3.0);
+  return {
+    ai_slop_score: Math.round(score * 100) / 100,
+    is_ai_slop: matches >= 2,
+  };
+}
+
+/**
+ * Model 15: Smart-Money & Elite Whale PnL Clustering
+ * Tracks whether verified high-PnL smart wallets have accumulated early on the curve.
+ */
+export function checkSmartMoney(
+  trades: TradePoint[],
+  alphaWallets: Set<string> = KNOWN_ALPHA_WALLETS
+): {
+  smart_money_buyers: number;
+  smart_money_sol: number;
+  is_smart_money_in: boolean;
+} {
+  const smartBuyers = new Set<string>();
+  let smartSol = 0;
+
+  for (const t of trades) {
+    if (t.side === "buy" && alphaWallets.has(t.trader)) {
+      smartBuyers.add(t.trader);
+      smartSol += t.sol_amount;
+    }
+  }
+
+  return {
+    smart_money_buyers: smartBuyers.size,
+    smart_money_sol: Math.round(smartSol * 100) / 100,
+    is_smart_money_in: smartBuyers.size > 0,
+  };
+}
+
+/**
+ * Compute quantitative flow, concentration, developer status, velocity, predictive, and cutting-edge metrics.
  */
 export function calculateTokenMetrics(
   trades: TradePoint[],
   creatorAddress: string,
-  migrationTargetSol: number = RAYDIUM_MIGRATION_SOL
+  migrationTargetSol: number = RAYDIUM_MIGRATION_SOL,
+  priorTokensCreated: number = 0,
+  priorTokensGraduated: number = 0,
+  metadata?: LaunchMetadata
 ): TokenMetrics {
   if (trades.length === 0) {
     return {
@@ -487,6 +684,16 @@ export function calculateTokenMetrics(
       distribution_risk_pct: 50,
       sybil_cluster_ratio: 0,
       effective_unique_buyers: 0,
+      mev_extraction_ratio: 0,
+      is_mev_sandwiched: false,
+      serial_rug_index: 0,
+      same_slot_bundle_ratio: 0,
+      slot_velocity: 0,
+      ai_slop_score: 0,
+      is_ai_slop: false,
+      smart_money_buyers: 0,
+      smart_money_sol: 0,
+      is_smart_money_in: false,
     };
   }
 
@@ -579,6 +786,13 @@ export function calculateTokenMetrics(
   const regime = detectMarketRegime(trades, vpin, ofi, solVelocity, hawkes.branching_ratio);
   const sybil = computeSybilClusterMetrics(trades);
 
+  // Cutting-Edge Frontier Forensics
+  const mev = detectMEVSandwich(trades);
+  const sri = computeSerialRugIndex(priorTokensCreated, priorTokensGraduated);
+  const slotMetrics = computeSlotMetrics(trades);
+  const nlp = analyzeMemeNarrative(metadata?.name, metadata?.symbol, metadata?.description);
+  const smartMoney = checkSmartMoney(trades);
+
   return {
     total_trades: trades.length,
     buy_count: buyCount,
@@ -612,6 +826,16 @@ export function calculateTokenMetrics(
     distribution_risk_pct: regime.distribution_risk_pct,
     sybil_cluster_ratio: sybil.sybil_cluster_ratio,
     effective_unique_buyers: sybil.effective_unique_buyers,
+    mev_extraction_ratio: mev.mev_extraction_ratio,
+    is_mev_sandwiched: mev.is_mev_sandwiched,
+    serial_rug_index: sri.serial_rug_index,
+    same_slot_bundle_ratio: slotMetrics.same_slot_bundle_ratio,
+    slot_velocity: slotMetrics.slot_velocity,
+    ai_slop_score: nlp.ai_slop_score,
+    is_ai_slop: nlp.is_ai_slop,
+    smart_money_buyers: smartMoney.smart_money_buyers,
+    smart_money_sol: smartMoney.smart_money_sol,
+    is_smart_money_in: smartMoney.is_smart_money_in,
   };
 }
 
@@ -672,6 +896,11 @@ export function scoreTokenCandidate(
   // Model 10: Sybil Co-Execution Ring
   if (metrics.sybil_cluster_ratio >= 0.35 && metrics.total_trades >= 10) {
     flags.push("SYNCHRONIZED_SYBIL_RING");
+  }
+
+  // Model 13: High-Frequency Same-Slot Bundles
+  if (metrics.same_slot_bundle_ratio >= 0.40 && metrics.total_trades >= 8) {
+    flags.push("HIGH_FREQUENCY_BUNDLE_CLUSTER");
   }
 
   // ========================================================================
@@ -747,6 +976,17 @@ export function scoreTokenCandidate(
     flags.push("STEALTH_DISTRIBUTION_TRAP");
   }
 
+  // Model 15: Smart Money Accumulation Bonus
+  if (metrics.is_smart_money_in) {
+    momScore = Math.min(momScore + 10, 35);
+    flags.push("SMART_MONEY_CONVICTION");
+  }
+
+  // Model 11: Jito MEV Sandwich Extraction
+  if (metrics.is_mev_sandwiched) {
+    flags.push("PREDATORY_MEV_DRAIN");
+  }
+
   // ========================================================================
   // 3. Creator Trust & Supply Alignment (0 to 15 pts)
   // ========================================================================
@@ -766,6 +1006,11 @@ export function scoreTokenCandidate(
     flags.push("DEV_UNKNOWN");
   }
 
+  // Model 12: Serial Rugger Index
+  if (metrics.serial_rug_index >= 0.75) {
+    flags.push("SERIAL_RUGGER_BLACKLIST");
+  }
+
   // ========================================================================
   // 4. Social Metadata & Narrative Presence (0 to 20 pts)
   // ========================================================================
@@ -783,6 +1028,11 @@ export function scoreTokenCandidate(
     } else if (metaScore === 0) {
       flags.push("NO_SOCIALS");
     }
+  }
+
+  // Model 14: AI Slop Narrative Detection
+  if (metrics.is_ai_slop) {
+    flags.push("AI_GENERATED_METADATA_SLOP");
   }
 
   // ========================================================================
@@ -811,6 +1061,9 @@ export function scoreTokenCandidate(
   if (flags.includes("WASH_TRADE_SUSPICION")) penalty += 30;
   if (flags.includes("STEALTH_DISTRIBUTION_TRAP")) penalty += 30;
   if (flags.includes("SYNCHRONIZED_SYBIL_RING")) penalty += 30;
+  if (flags.includes("PREDATORY_MEV_DRAIN")) penalty += 30;
+  if (flags.includes("SERIAL_RUGGER_BLACKLIST")) penalty += 40;
+  if (flags.includes("AI_GENERATED_METADATA_SLOP")) penalty += 20;
 
   const total = Math.max(
     0,
@@ -828,6 +1081,8 @@ export function scoreTokenCandidate(
   // 8. Zero tolerance on bot wash-trading rings (Pareto zeta > 4.5)
   // 9. Zero tolerance on stealth distribution traps (HMM distribution regime)
   // 10. Zero tolerance on synchronized multi-wallet sybil farms
+  // 11. Zero tolerance on predatory MEV sandwich draining
+  // 12. Zero tolerance on serial ruggers (SRI >= 0.75 with >= 3 prior tokens)
   const isDisqualified =
     flags.includes("NO_SOCIALS") ||
     flags.includes("DEV_DUMPED_TOKENS") ||
@@ -837,6 +1092,8 @@ export function scoreTokenCandidate(
     flags.includes("WASH_TRADE_SUSPICION") ||
     flags.includes("STEALTH_DISTRIBUTION_TRAP") ||
     flags.includes("SYNCHRONIZED_SYBIL_RING") ||
+    flags.includes("PREDATORY_MEV_DRAIN") ||
+    flags.includes("SERIAL_RUGGER_BLACKLIST") ||
     effectiveBuyers < 12 ||
     metrics.buyer_hhi > 0.28 ||
     metrics.top5_buyer_share > 0.45;

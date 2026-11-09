@@ -60,7 +60,12 @@ export function formatResearchCard(
   hawkesEta: number = 0.5,
   hurstH: number = 0.5,
   effectiveBuyers: number = buyers,
-  sybilRatio: number = 0
+  sybilRatio: number = 0,
+  mevRatio: number = 0,
+  sri: number = 0,
+  smartBuyers: number = 0,
+  smartSol: number = 0,
+  sameSlotRatio: number = 0
 ): string {
   const flagsStr = flags.length > 0 ? flags.join(" | ") : "Clean";
   const devStatus = devSold
@@ -88,6 +93,10 @@ export function formatResearchCard(
     `  • Market Microstructure Regime: ${regime}`,
     `  • Hawkes Cascade Intensity: η=${hawkesEta.toFixed(2)} ${hawkesEta >= 1.0 ? "(⚡ Supercritical FOMO)" : "(Subcritical)"}`,
     `  • Hurst Trend Persistence: H=${hurstH.toFixed(2)} ${hurstH > 0.6 ? "(📈 Persistent Trend)" : hurstH < 0.4 ? "(🔄 Mean Reverting)" : "(🎲 Random Walk)"}`,
+    ``,
+    `⚡ Elite Quant & Forensic Intelligence:`,
+    `  • MEV Forensics: ${(mevRatio * 100).toFixed(0)}% extraction | Single-Slot Bundles: ${(sameSlotRatio * 100).toFixed(0)}%`,
+    `  • Creator DNA: Serial Rug Index: ${sri.toFixed(2)} | Alpha Wallets: ${smartBuyers} in (${smartSol.toFixed(2)} SOL)`,
     ``,
     `🏷️ Quantitative Flags:`,
     `  ${flagsStr}`,
