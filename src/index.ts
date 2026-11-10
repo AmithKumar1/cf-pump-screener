@@ -38,6 +38,41 @@ function extractAuthToken(request: Request, url: URL): string | null {
   return null;
 }
 
+interface LiveEventItem {
+  id: number;
+  mint: string;
+  symbol: string;
+  name: string;
+  creator: string;
+  uri: string;
+  twitter: string | null;
+  telegram: string | null;
+  website: string | null;
+  time_utc: string;
+  past_launches: number;
+  is_serial_rugger: boolean;
+  has_alert: boolean;
+}
+
+interface MemoryFeedCache {
+  events: LiveEventItem[];
+  alerts: any[];
+  maxId: number;
+  withSocials: number;
+  serialRuggersBlocked: number;
+  lastDbSync: number;
+}
+
+// In-Memory Edge Cache to eliminate D1 rows_read quota burn from dashboard polling
+const MEM_CACHE: MemoryFeedCache = {
+  events: [],
+  alerts: [],
+  maxId: 0,
+  withSocials: 0,
+  serialRuggersBlocked: 0,
+  lastDbSync: 0,
+};
+
 export default {
   /**
    * HTTP Request Handler
@@ -52,59 +87,45 @@ export default {
       });
     }
 
-    // Live Feed API for Dashboard auto-refresh
+    // Live Feed API for Dashboard auto-refresh (Zero-D1 In-Memory Edge Cache)
     if (url.pathname === "/api/live") {
-      const eventCount = await env.DB.prepare("SELECT COUNT(*) as count FROM events").first<{ count: number }>();
-      const socialsCount = await env.DB.prepare("SELECT COUNT(*) as count FROM events WHERE (twitter IS NOT NULL AND twitter != '') OR (telegram IS NOT NULL AND telegram != '') OR (website IS NOT NULL AND website != '')").first<{ count: number }>();
-      const alertCount = await env.DB.prepare("SELECT COUNT(*) as count FROM alerts").first<{ count: number }>();
+      const now = Date.now();
+      // Cold-start / 3-minute periodic sync (Index-bounded query reading <= 45 rows max)
+      if (MEM_CACHE.events.length === 0 || now - MEM_CACHE.lastDbSync > 180000) {
+        const maxRow = await env.DB.prepare("SELECT MAX(id) as max_id FROM events").first<{ max_id: number }>();
+        const alertRows = await env.DB.prepare("SELECT * FROM alerts ORDER BY id DESC LIMIT 10").all<any>();
 
-      const { results: recentEvents } = await env.DB.prepare(
-        `SELECT id, mint, symbol, name, creator, uri, twitter, telegram, website, datetime(received_at/1000, 'unixepoch') as time_utc
-         FROM events
-         ORDER BY id DESC
-         LIMIT 30`
-      ).all<any>();
+        const { results: recentEvents } = await env.DB.prepare(
+          `SELECT id, mint, symbol, name, creator, uri, twitter, telegram, website, datetime(received_at/1000, 'unixepoch') as time_utc
+           FROM events
+           ORDER BY id DESC
+           LIMIT 30`
+        ).all<any>();
 
-      const { results: recentAlerts } = await env.DB.prepare(
-        "SELECT * FROM alerts ORDER BY id DESC LIMIT 10"
-      ).all<any>();
+        MEM_CACHE.maxId = maxRow?.max_id || 0;
+        MEM_CACHE.alerts = alertRows.results || [];
+        MEM_CACHE.lastDbSync = now;
 
-      // Check creator past launch counts to label serial ruggers
-      const creators = Array.from(new Set(recentEvents.map((e) => e.creator))).slice(0, 15);
-      const creatorCounts = new Map<string, number>();
-      for (const c of creators) {
-        if (!c || c === "unknown") continue;
-        const countRow = await env.DB.prepare(
-          "SELECT COUNT(*) as count FROM events WHERE creator = ?"
-        ).bind(c).first<{ count: number }>();
-        creatorCounts.set(c, countRow?.count || 1);
-      }
-
-      let serialRuggersBlocked = 0;
-      const enrichedEvents = recentEvents.map((e) => {
-        const past = creatorCounts.get(e.creator) || 1;
-        const isSerialRugger = past >= 3;
-        if (isSerialRugger) serialRuggersBlocked++;
-        return {
+        MEM_CACHE.events = (recentEvents || []).map((e) => ({
           ...e,
-          past_launches: past,
-          is_serial_rugger: isSerialRugger,
-          has_alert: recentAlerts.some((a) => a.mint === e.mint),
-        };
-      });
+          past_launches: 1,
+          is_serial_rugger: false,
+          has_alert: (MEM_CACHE.alerts || []).some((a: any) => a.mint === e.mint),
+        }));
+      }
 
       return new Response(
         JSON.stringify({
           service: "cf-pump-screener",
           status: "healthy",
           stats: {
-            launches_logged: eventCount?.count || 0,
-            with_socials: socialsCount?.count || 0,
-            serial_ruggers_blocked: Math.max(1, serialRuggersBlocked),
-            signals_generated: alertCount?.count || 0,
+            launches_logged: MEM_CACHE.maxId,
+            with_socials: MEM_CACHE.withSocials,
+            serial_ruggers_blocked: Math.max(1, MEM_CACHE.serialRuggersBlocked),
+            signals_generated: MEM_CACHE.alerts.length,
           },
-          events: enrichedEvents,
-          alerts: recentAlerts,
+          events: MEM_CACHE.events,
+          alerts: MEM_CACHE.alerts,
           timestamp: new Date().toISOString(),
         }),
         { headers: { "Content-Type": "application/json" } }
@@ -113,9 +134,8 @@ export default {
 
     // Root status route (JSON)
     if (url.pathname === "/" || url.pathname === "/health") {
-      const eventCount = await env.DB.prepare("SELECT COUNT(*) as count FROM events").first<{ count: number }>();
+      const maxRow = await env.DB.prepare("SELECT MAX(id) as max_id FROM events").first<{ max_id: number }>();
       const tradeCount = await env.DB.prepare("SELECT COUNT(*) as count FROM trades").first<{ count: number }>();
-      const alertCount = await env.DB.prepare("SELECT COUNT(*) as count FROM alerts").first<{ count: number }>();
 
       return new Response(
         JSON.stringify({
@@ -123,9 +143,9 @@ export default {
           status: "healthy",
           edge: "cloudflare-free-tier",
           stats: {
-            launches_logged: eventCount?.count || 0,
+            launches_logged: maxRow?.max_id || MEM_CACHE.maxId,
             trades_logged: tradeCount?.count || 0,
-            signals_generated: alertCount?.count || 0,
+            signals_generated: MEM_CACHE.alerts.length,
           },
           dashboard_url: "https://cf-pump-screener.amitrathoddev.workers.dev/dashboard",
           timestamp: new Date().toISOString(),
@@ -191,6 +211,26 @@ export default {
             if (heliusCreate.uri) {
               createdMintsToResolve.push({ mint: heliusCreate.mint, uri: heliusCreate.uri });
             }
+
+            // Update In-Memory Edge Cache (Zero D1 reads for live monitoring)
+            MEM_CACHE.maxId++;
+            MEM_CACHE.events.unshift({
+              id: MEM_CACHE.maxId,
+              mint: heliusCreate.mint,
+              symbol: heliusCreate.symbol || "PUMP",
+              name: heliusCreate.name || "",
+              creator: heliusCreate.creator || "unknown",
+              uri: heliusCreate.uri || "",
+              twitter: null,
+              telegram: null,
+              website: null,
+              time_utc: new Date(nowMs).toISOString().replace("T", " ").slice(0, 19),
+              past_launches: 1,
+              is_serial_rugger: false,
+              has_alert: false,
+            });
+            if (MEM_CACHE.events.length > 35) MEM_CACHE.events.pop();
+
             continue;
           }
 
@@ -335,6 +375,17 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
       (meta.website && meta.website.trim() !== "")
     );
 
+    // Update In-Memory cache for live dashboard without D1 query
+    const cachedItem = MEM_CACHE.events.find((e) => e.mint === mint);
+    if (cachedItem) {
+      cachedItem.twitter = meta.twitter ?? null;
+      cachedItem.telegram = meta.telegram ?? null;
+      cachedItem.website = meta.website ?? null;
+      cachedItem.name = meta.name || cachedItem.name;
+      cachedItem.symbol = meta.symbol || cachedItem.symbol;
+      if (hasSocials) MEM_CACHE.withSocials++;
+    }
+
     if (hasSocials) {
       // Fetch creator and name from events table
       const eventRow = await env.DB.prepare(
@@ -363,6 +414,12 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
           .all<{ mint: string }>();
 
         const sri = computeSerialRugIndex(pastEvents.length, 0);
+
+        if (cachedItem) {
+          cachedItem.past_launches = pastEvents.length;
+          cachedItem.is_serial_rugger = sri.is_serial_rugger;
+          if (sri.is_serial_rugger) MEM_CACHE.serialRuggersBlocked++;
+        }
 
         // 3. Smart Money check
         const isSmartCreator = KNOWN_ALPHA_WALLETS.has(creator);
@@ -393,6 +450,20 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
             )
               .bind(mint, tokenSymbol, stage1Score, Date.now())
               .run();
+
+            if (cachedItem) cachedItem.has_alert = true;
+            MEM_CACHE.alerts.unshift({
+              id: Date.now(),
+              mint,
+              symbol: tokenSymbol,
+              score: stage1Score,
+              net_sol: 0,
+              unique_buyers: 1,
+              buyer_hhi: 0,
+              flags: "STAGE_1_VERIFIED_LAUNCH",
+              created_at: Date.now(),
+            });
+            if (MEM_CACHE.alerts.length > 10) MEM_CACHE.alerts.pop();
 
             // Dispatch immediately to Telegram (@memcoinhome_bot)
             if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {

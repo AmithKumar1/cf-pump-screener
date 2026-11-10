@@ -60,14 +60,17 @@ export async function monitorActiveWatchlist(env: Env): Promise<void> {
   const chatId = env.TELEGRAM_CHAT_ID;
   if (!token || !chatId) return;
 
-  // Get up to 20 verified tokens launched in the last 60 minutes
+  // Get up to 20 verified tokens from the most recent 150 launches (Index-bounded on primary key to save D1 rows_read)
   const { results: candidates } = await env.DB.prepare(
     `SELECT mint, name, symbol, creator
      FROM events
-     WHERE (twitter IS NOT NULL AND twitter != '')
-        OR (telegram IS NOT NULL AND telegram != '')
-        OR (website IS NOT NULL AND website != '')
-     ORDER BY received_at DESC
+     WHERE id >= (SELECT COALESCE(MAX(id), 0) - 150 FROM events)
+       AND (
+         (twitter IS NOT NULL AND twitter != '')
+         OR (telegram IS NOT NULL AND telegram != '')
+         OR (website IS NOT NULL AND website != '')
+       )
+     ORDER BY id DESC
      LIMIT 20`
   ).all<{ mint: string; name: string; symbol: string; creator: string }>();
 
