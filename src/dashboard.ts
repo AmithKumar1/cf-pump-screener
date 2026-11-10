@@ -676,7 +676,7 @@ export function renderDashboardHtml(): string {
       <span><span class="hotkey-pill">G</span>GMGN</span>
       <span><span class="hotkey-pill">M</span>Mute</span>
       <span><span class="hotkey-pill">T</span>Theme</span>
-      <span><span class="hotkey-pill">1-5</span>Tabs</span>
+      <span><span class="hotkey-pill">1-6</span>Tabs</span>
     </div>
   </div>
 
@@ -755,6 +755,7 @@ export function renderDashboardHtml(): string {
         <button class="center-tab-btn" id="tab-btn-obi" onclick="switchCenterTab('obi')">[3] ⚡ HFT OBI Radar</button>
         <button class="center-tab-btn" id="tab-btn-factors" onclick="switchCenterTab('factors')">[4] 📊 Alpha-158</button>
         <button class="center-tab-btn" id="tab-btn-whales" onclick="switchCenterTab('whales')">[5] 👥 Whales Book</button>
+        <button class="center-tab-btn" id="tab-btn-memo" onclick="switchCenterTab('memo')">[6] 📜 Research Memo</button>
       </div>
 
       <!-- Tab 1: Arkham Sybil Bubble Canvas -->
@@ -765,6 +766,7 @@ export function renderDashboardHtml(): string {
             <span id="c-cluster-verdict" class="badge badge-green">Organic Decentralized Flow</span>
           </div>
           <canvas id="sybil-canvas"></canvas>
+          <div id="sybil-tooltip" style="position:absolute;display:none;pointer-events:auto;z-index:100;background:rgba(7,12,18,0.96);border:1px solid var(--bbg-amber);border-radius:4px;padding:7px 9px;box-shadow:0 8px 24px rgba(0,0,0,0.9);backdrop-filter:blur(8px);min-width:220px;max-width:280px;font-size:9.5px;line-height:1.35;"></div>
           <div style="display:flex;justify-content:center;gap:12px;font-size:9px;color:var(--text-muted);margin-top:2px;">
             <span><span style="color:#f59e0b;">●</span> Dev Wallet</span>
             <span><span style="color:#ff3344;">●</span> Bundled Insider</span>
@@ -859,25 +861,126 @@ export function renderDashboardHtml(): string {
                 <th>Share %</th>
                 <th>Tag</th>
                 <th>Trades</th>
+                <th>Track</th>
               </tr>
             </thead>
             <tbody id="c-whales-body">
-              <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:8px;">Select a token to load whale distribution...</td></tr>
+              <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:8px;">Select a token to load whale distribution...</td></tr>
             </tbody>
           </table>
         </div>
       </div>
+
+      <!-- Tab 6: Institutional Quantitative Research Memo -->
+      <div id="view-tab-memo" class="tab-body" style="display:none;padding:5px;gap:5px;">
+        <!-- Executive Verdict Banner -->
+        <div style="background:#090e14;border:1px solid #1a2736;border-radius:3px;padding:6px 8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:4px;">
+          <div>
+            <div style="display:flex;align-items:center;gap:5px;margin-bottom:2px;">
+              <span id="memo-verdict-badge" class="badge badge-green" style="font-size:9px;padding:2px 5px;">ACCUMULATE</span>
+              <strong id="memo-verdict-title" style="font-size:11px;color:#fff;">ORGANIC DECENTRALIZED ACCUMULATION</strong>
+            </div>
+            <div id="memo-verdict-sub" style="font-size:8.5px;color:var(--text-muted);">Algorithmic Quantitative Intelligence Dossier</div>
+          </div>
+          <div style="display:flex;gap:3px;align-items:center;">
+            <a id="memo-exec-photon" href="#" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;">⚡ Trade Photon</a>
+            <a id="memo-exec-bullx" href="#" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;">🎯 Trade BullX</a>
+            <button class="btn" onclick="exportQuantJson()" style="color:var(--accent);">📥 Export Dossier</button>
+          </div>
+        </div>
+
+        <!-- Executive Summary & Quant Thesis -->
+        <div class="bento-card" style="border-left:3px solid var(--bbg-amber);padding:6px 8px;">
+          <div style="font-size:9px;font-weight:700;color:var(--bbg-amber);margin-bottom:3px;">📋 EXECUTIVE SUMMARY & QUANT THESIS</div>
+          <p id="memo-exec-summary" style="font-size:9.5px;color:#cbd5e1;line-height:1.45;">Select a token to generate full quantitative research memo...</p>
+        </div>
+
+        <!-- 4-Card Forensic Deep Dive Grid -->
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;">
+          <div class="bento-card" style="padding:5px 7px;">
+            <div style="font-size:9px;font-weight:700;color:var(--bbg-amber);margin-bottom:2px;">👤 CREATOR DNA & REPUTATION</div>
+            <p id="memo-creator-analysis" style="font-size:9px;color:#cbd5e1;line-height:1.4;">--</p>
+          </div>
+          <div class="bento-card" style="padding:5px 7px;">
+            <div style="font-size:9px;font-weight:700;color:var(--bbg-amber);margin-bottom:2px;">💰 CAPITAL STRUCTURE & HHI</div>
+            <p id="memo-capital-analysis" style="font-size:9px;color:#cbd5e1;line-height:1.4;">--</p>
+          </div>
+          <div class="bento-card" style="padding:5px 7px;">
+            <div style="font-size:9px;font-weight:700;color:var(--bbg-amber);margin-bottom:2px;">🕸️ ARKHAM SYBIL & BUNDLING</div>
+            <p id="memo-sybil-analysis" style="font-size:9px;color:#cbd5e1;line-height:1.4;">--</p>
+          </div>
+          <div class="bento-card" style="padding:5px 7px;">
+            <div style="font-size:9px;font-weight:700;color:var(--bbg-amber);margin-bottom:2px;">📈 LIQUIDITY & RAYDIUM TARGET</div>
+            <p id="memo-liquidity-analysis" style="font-size:9px;color:#cbd5e1;line-height:1.4;">--</p>
+          </div>
+        </div>
+
+        <!-- Tactical Execution Blueprint -->
+        <div class="bento-card" style="background:#060d14;border:1px solid #19324a;padding:5px 7px;">
+          <div style="font-size:9px;font-weight:700;color:var(--accent);margin-bottom:4px;">⚡ TACTICAL EXECUTION BLUEPRINT</div>
+          <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:4px;font-size:9px;">
+            <div>
+              <div style="color:var(--text-muted);font-size:8px;">SUGGESTED ACTION</div>
+              <strong id="memo-action-val" style="color:var(--green);font-size:9.5px;">--</strong>
+            </div>
+            <div>
+              <div style="color:var(--text-muted);font-size:8px;">RECOMMENDED SLIPPAGE</div>
+              <strong id="memo-slippage-val" class="mono" style="color:#fff;font-size:9.5px;">--</strong>
+            </div>
+            <div>
+              <div style="color:var(--text-muted);font-size:8px;">ANTI-MEV JITO TIP</div>
+              <strong id="memo-jito-val" class="mono" style="color:var(--gold);font-size:9.5px;">--</strong>
+            </div>
+            <div>
+              <div style="color:var(--text-muted);font-size:8px;">RISK PROFILE</div>
+              <strong id="memo-risk-val" class="badge badge-green">--</strong>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <!-- PANE 3: Dispatched Signals & Whales (Right ~310px) -->
+    <!-- PANE 3: Dispatched Signals & Live Whale Radar (Right ~310px) -->
     <div class="cockpit-pane">
-      <div class="pane-header">
-        <span>🚨 Dispatched Signals (@memcoinhome_bot)</span>
-        <span class="mono" id="c-signals-count" style="font-size:9px;color:var(--purple);">0 Active</span>
+      <div class="pane-header" style="padding:2px 4px;">
+        <div style="display:flex;gap:3px;align-items:center;">
+          <button class="center-tab-btn active" id="p3-tab-signals-btn" onclick="switchPane3Tab('signals')" style="font-size:9px;padding:1px 5px;">🚨 Signals (<span id="c-signals-count">0</span>)</button>
+          <button class="center-tab-btn" id="p3-tab-whales-btn" onclick="switchPane3Tab('whales')" style="font-size:9px;padding:1px 5px;">🐋 Whale Radar (<span id="c-whales-count">5</span>)</button>
+        </div>
+        <span class="mono" style="font-size:8px;color:var(--green);" id="p3-sub-status">Live</span>
       </div>
-      <div class="pane-content" style="padding:3px;">
+
+      <!-- Pane 3 View 1: Dispatched Signals -->
+      <div class="pane-content" id="p3-view-signals" style="padding:3px;">
         <div id="c-alerts-list">
           <div style="text-align:center;padding:20px;color:var(--text-muted);">Awaiting high-conviction signals...</div>
+        </div>
+      </div>
+
+      <!-- Pane 3 View 2: Live Whale & Sniper Radar -->
+      <div class="pane-content" id="p3-view-whales" style="display:none;padding:3px;gap:4px;flex-direction:column;">
+        <!-- Quick Track Wallet Input -->
+        <div style="padding:3px;background:#090e14;border:1px solid #16212d;border-radius:3px;display:flex;gap:3px;align-items:center;">
+          <input type="text" id="track-wallet-input" placeholder="Track wallet (e.g. FWzn...)..." style="flex:1;background:#060a0e;border:1px solid #1a2533;border-radius:2px;color:var(--text);font-family:var(--font-mono);font-size:9px;padding:2px 4px;outline:none;" />
+          <button class="btn btn-inspect" onclick="addCustomWhaleFromInput()" style="white-space:nowrap;font-size:8px;padding:2px 4px;">+ Track</button>
+        </div>
+
+        <!-- Live Whale Trades Stream -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:1px 2px;">
+          <span style="font-size:9px;font-weight:700;color:var(--bbg-amber);">LIVE WHALE TRADES (INSTANT SNIPES)</span>
+          <span class="badge badge-cyan" id="whale-trades-counter" style="font-size:8px;">0 Trades</span>
+        </div>
+        <div id="whale-trades-list" style="display:flex;flex-direction:column;gap:3px;max-height:220px;overflow-y:auto;">
+          <div style="text-align:center;padding:12px;color:var(--text-muted);font-size:9px;">Monitoring alpha wallets & conviction buys (&ge;3 SOL)...</div>
+        </div>
+
+        <!-- Tracked Elite Alpha Watchlist -->
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:3px 2px 1px 2px;border-top:1px solid var(--border);margin-top:2px;">
+          <span style="font-size:9px;font-weight:700;color:var(--accent);">ALPHA SNIPERS WATCHLIST</span>
+          <span style="font-size:8px;color:#64748b;">Telegram Alerts ↗</span>
+        </div>
+        <div id="tracked-whales-list" style="display:flex;flex-direction:column;gap:3px;overflow-y:auto;flex:1;">
+          <!-- Populated dynamically -->
         </div>
       </div>
     </div>
@@ -1083,10 +1186,11 @@ export function renderDashboardHtml(): string {
                     <th>Share %</th>
                     <th>Classification</th>
                     <th>Trades</th>
+                    <th>Track</th>
                   </tr>
                 </thead>
                 <tbody id="m-investors-body">
-                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:8px;">Loading on-chain ledger...</td></tr>
+                  <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:8px;">Loading on-chain ledger...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -1299,11 +1403,16 @@ export function renderDashboardHtml(): string {
       }).join("");
     }
 
+    let currentPane3Tab = "signals";
+    let activeCanvasNodes = [];
+    let hoveredCanvasNodeId = null;
+    let lastCanvasGraphData = null;
+
     // Center Tab Switcher
     function switchCenterTab(tabKey) {
       playTactileClick();
       currentCenterTab = tabKey;
-      ["sybil", "tv", "obi", "factors", "whales"].forEach(t => {
+      ["sybil", "tv", "obi", "factors", "whales", "memo"].forEach(t => {
         const btn = document.getElementById("tab-btn-" + t);
         const view = document.getElementById("view-tab-" + t);
         if (btn) btn.classList.toggle("active", t === tabKey);
@@ -1320,10 +1429,139 @@ export function renderDashboardHtml(): string {
       }
     }
 
-    // Canvas Sybil Bubble Map Engine (Arkham Spec)
+    // Pane 3 Tab Switcher (Signals vs Whale Radar)
+    function switchPane3Tab(tabKey) {
+      playTactileClick();
+      currentPane3Tab = tabKey;
+      const isSignals = tabKey === "signals";
+      const sBtn = document.getElementById("p3-tab-signals-btn");
+      const wBtn = document.getElementById("p3-tab-whales-btn");
+      const sView = document.getElementById("p3-view-signals");
+      const wView = document.getElementById("p3-view-whales");
+      if (sBtn) sBtn.classList.toggle("active", isSignals);
+      if (wBtn) wBtn.classList.toggle("active", !isSignals);
+      if (sView) sView.style.display = isSignals ? "block" : "none";
+      if (wView) wView.style.display = isSignals ? "none" : "flex";
+    }
+
+    // Dynamic Whale Tracking API
+    async function trackWhale(wallet, alias) {
+      if (!wallet) return;
+      playTactileClick();
+      try {
+        const res = await fetch("/api/track-whale", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wallet, alias: alias || "Tracked Whale" }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          renderTrackedWhales(data.tracked);
+          switchPane3Tab("whales");
+        }
+      } catch (err) {
+        console.error("Track whale error:", err);
+      }
+    }
+
+    async function untrackWhale(wallet) {
+      if (!wallet) return;
+      playTactileClick();
+      try {
+        const res = await fetch("/api/untrack-whale", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ wallet }),
+        });
+        if (res.ok) {
+          const data = await res.json();
+          renderTrackedWhales(data.tracked);
+        }
+      } catch (err) {
+        console.error("Untrack whale error:", err);
+      }
+    }
+
+    function addCustomWhaleFromInput() {
+      const input = document.getElementById("track-wallet-input");
+      const val = (input.value || "").trim();
+      if (val.length >= 32) {
+        trackWhale(val, "Custom Sniper");
+        input.value = "";
+      } else {
+        alert("Please enter a valid Solana wallet address (32+ characters)");
+      }
+    }
+
+    function renderTrackedWhales(tracked) {
+      const container = document.getElementById("tracked-whales-list");
+      if (!container) return;
+      const list = tracked || [];
+      const countEl = document.getElementById("c-whales-count");
+      if (countEl) countEl.innerText = list.length;
+      if (list.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:8px;color:var(--text-muted);font-size:8.5px;">No wallets tracked. Add a wallet above or click [+ Track] on any whale.</div>';
+        return;
+      }
+      container.innerHTML = list.map(w => \`
+        <div style="background:#080d12;border:1px solid #141f2a;border-radius:3px;padding:3px 5px;display:flex;justify-content:space-between;align-items:center;font-size:9px;">
+          <div>
+            <div style="font-weight:700;color:#fff;">\${escapeHtml(w.alias)}</div>
+            <div style="display:flex;gap:4px;align-items:center;margin-top:1px;">
+              <a href="https://solscan.io/account/\${w.wallet}" target="_blank" class="mono" style="color:var(--accent);font-size:8.5px;">\${escapeHtml(w.short)} ↗</a>
+              <span class="badge badge-green" style="font-size:7px;">\${w.win_rate}% Win</span>
+              <span style="color:var(--gold);font-size:8px;">+\${w.total_pnl_sol} SOL</span>
+            </div>
+          </div>
+          <button class="btn" style="padding:1px 4px;font-size:8px;color:var(--red);" onclick="untrackWhale('\${w.wallet}')" title="Untrack wallet">✕</button>
+        </div>
+      \`).join("");
+    }
+
+    function renderWhaleTrades(trades) {
+      const container = document.getElementById("whale-trades-list");
+      if (!container) return;
+      const list = trades || [];
+      const counterEl = document.getElementById("whale-trades-counter");
+      if (counterEl) counterEl.innerText = list.length + " Trades";
+      if (list.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:12px;color:var(--text-muted);font-size:9px;">Monitoring alpha wallets & conviction buys (&ge;3 SOL)...</div>';
+        return;
+      }
+      container.innerHTML = list.map(t => {
+        const isBuy = t.side === "buy";
+        const sideBadge = isBuy
+          ? \`<span class="badge badge-green">🟢 BUY \${t.sol_amount.toFixed(2)} SOL</span>\`
+          : \`<span class="badge badge-red">🔴 SELL \${t.sol_amount.toFixed(2)} SOL</span>\`;
+        const timeStr = t.timestamp ? new Date(t.timestamp).toISOString().slice(11, 19) : "--:--:--";
+
+        return \`
+          <div style="background:#090f15;border:1px solid \${isBuy ? 'rgba(0,255,102,0.2)' : 'rgba(255,51,68,0.2)'};border-radius:3px;padding:3px 5px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:2px;">
+              <strong style="color:var(--bbg-amber);font-size:10px;cursor:pointer;" onclick="selectActiveToken('\${t.mint}')">$\${escapeHtml(t.symbol)}</strong>
+              \${sideBadge}
+            </div>
+            <div style="display:flex;justify-content:space-between;align-items:center;font-size:8px;color:var(--text-muted);margin-bottom:2px;">
+              <span>👤 \${escapeHtml(t.alias)} (<span class="mono">\${escapeHtml(t.trader_short)}</span>)</span>
+              <span class="mono">\${timeStr}</span>
+            </div>
+            <div style="display:flex;gap:3px;align-items:center;justify-content:flex-end;">
+              <button class="btn btn-inspect" style="padding:1px 4px;font-size:8px;" onclick="selectActiveToken('\${t.mint}')">🔬 Inspect</button>
+              <a href="https://photon-sol.tinyastro.io/en/lp/\${t.mint}" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;padding:1px 5px;font-size:8px;" title="1-Click Copy-Snipe on Photon">⚡ Photon Copy</a>
+              <a href="https://bullx.io/terminal?chainId=1399811149&address=\${t.mint}" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;padding:1px 5px;font-size:8px;" title="Snipe on BullX">🎯 BullX</a>
+            </div>
+          </div>
+        \`;
+      }).join("");
+    }
+
+    // Canvas Sybil Bubble Map Engine (Arkham Spec with Interactive Hover Card)
     function drawSybilCanvas(canvasId, graphData) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
+      if (graphData) lastCanvasGraphData = graphData;
+      const dataToRender = lastCanvasGraphData || graphData;
+
       const ctx = canvas.getContext("2d");
       const rect = canvas.getBoundingClientRect();
       const width = canvas.width = Math.max(300, rect.width || canvas.parentElement.clientWidth || 360);
@@ -1343,38 +1581,49 @@ export function renderDashboardHtml(): string {
         ctx.stroke();
       });
 
-      const nodes = graphData?.nodes || [];
-      const links = graphData?.links || [];
+      const nodes = dataToRender?.nodes || [];
+      const links = dataToRender?.links || [];
       if (nodes.length === 0) return;
 
       const angleStep = nodes.length > 1 ? (Math.PI * 2) / (nodes.length - 1) : 0;
-      const posMap = new Map();
+      activeCanvasNodes = [];
 
       nodes.forEach((n, i) => {
         if (n.role === "CREATOR" || i === 0) {
-          posMap.set(n.id, { x: centerX, y: centerY, r: 15, color: n.color || "#f59e0b", label: n.short });
+          activeCanvasNodes.push({ id: n.id, x: centerX, y: centerY, r: 15, color: n.color || "#f59e0b", label: n.short, nodeData: n });
         } else {
           const radius = (maxR * 0.72) + (i % 2 === 0 ? 12 : -10);
           const angle = (i - 1) * angleStep;
           const x = centerX + Math.cos(angle) * radius;
           const y = centerY + Math.sin(angle) * radius;
           const nodeR = Math.max(6, Math.min(13, 6 + (n.sol || 1) * 1.8));
-          posMap.set(n.id, { x, y, r: nodeR, color: n.color || "#00d2ff", label: n.short });
+          activeCanvasNodes.push({ id: n.id, x, y, r: nodeR, color: n.color || "#00d2ff", label: n.short, nodeData: n });
         }
       });
+
+      const posMap = new Map();
+      activeCanvasNodes.forEach(item => posMap.set(item.id, item));
 
       // Draw connection lines
       links.forEach(l => {
         const p1 = posMap.get(l.source);
         const p2 = posMap.get(l.target);
         if (!p1 || !p2) return;
+        const isHoveredLink = hoveredCanvasNodeId && (l.source === hoveredCanvasNodeId || l.target === hoveredCanvasNodeId);
+
         ctx.beginPath();
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
-        if (l.type === "bundled_cluster") {
+        if (isHoveredLink) {
+          ctx.lineWidth = 2.5;
+          ctx.strokeStyle = "rgba(0, 255, 255, 0.95)";
+          ctx.setLineDash([]);
+        } else if (l.type === "bundled_cluster") {
+          ctx.lineWidth = 1;
           ctx.strokeStyle = "rgba(255, 51, 68, 0.7)";
           ctx.setLineDash([3, 3]);
         } else {
+          ctx.lineWidth = 1;
           ctx.strokeStyle = "rgba(0, 255, 255, 0.25)";
           ctx.setLineDash([]);
         }
@@ -1383,17 +1632,126 @@ export function renderDashboardHtml(): string {
       });
 
       // Draw nodes
-      posMap.forEach((pos) => {
+      activeCanvasNodes.forEach((pos) => {
+        const isHovered = hoveredCanvasNodeId === pos.id;
+
+        // Glowing pulse halo if hovered
+        if (isHovered) {
+          ctx.save();
+          ctx.shadowBlur = 18;
+          ctx.shadowColor = pos.color;
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, pos.r + 4, 0, Math.PI * 2);
+          ctx.strokeStyle = pos.color;
+          ctx.lineWidth = 2.5;
+          ctx.stroke();
+          ctx.restore();
+        }
+
         ctx.beginPath();
         ctx.arc(pos.x, pos.y, pos.r, 0, Math.PI * 2);
         ctx.fillStyle = pos.color;
         ctx.fill();
 
-        ctx.fillStyle = "#cbd5e1";
-        ctx.font = "9px monospace";
+        ctx.fillStyle = isHovered ? "#ffffff" : "#cbd5e1";
+        ctx.font = isHovered ? "bold 9.5px monospace" : "9px monospace";
         ctx.textAlign = "center";
         ctx.fillText(pos.label, pos.x, pos.y + pos.r + 9);
       });
+
+      // Attach Interactive Mouse Hover Listeners
+      canvas.onmousemove = function(evt) {
+        const cRect = canvas.getBoundingClientRect();
+        const mouseX = evt.clientX - cRect.left;
+        const mouseY = evt.clientY - cRect.top;
+
+        let found = null;
+        for (const item of activeCanvasNodes) {
+          if (Math.hypot(item.x - mouseX, item.y - mouseY) <= item.r + 5) {
+            found = item;
+            break;
+          }
+        }
+
+        const tooltip = document.getElementById("sybil-tooltip");
+
+        if (found) {
+          canvas.style.cursor = "pointer";
+          if (hoveredCanvasNodeId !== found.id) {
+            hoveredCanvasNodeId = found.id;
+            drawSybilCanvas(canvasId, lastCanvasGraphData);
+          }
+
+          if (tooltip) {
+            const n = found.nodeData || {};
+            const solVal = n.sol !== undefined ? Number(n.sol).toFixed(2) : "0.00";
+            const netSolVal = n.net_sol !== undefined ? Number(n.net_sol).toFixed(2) : solVal;
+            const shareVal = n.share_pct !== undefined ? Number(n.share_pct).toFixed(1) : "0.0";
+            const tradesVal = n.trades_count || 1;
+            const transferInfo = n.transfer_info || (n.role === "CREATOR" ? "Token deployer / initial bonding curve creation" : "Early curve liquidity");
+            const solscanLink = n.solscan_url || ("https://solscan.io/account/" + found.id);
+            const tagText = n.tag || (n.role === "CREATOR" ? "👨‍💻 Creator" : n.role === "BUNDLED_INSIDER" ? "🚨 Bundled Insider" : "Whale / Buyer");
+
+            let roleBadge = "badge-cyan";
+            if (n.role === "CREATOR") roleBadge = "badge-yellow";
+            else if (n.role === "BUNDLED_INSIDER") roleBadge = "badge-red";
+            else if (n.role === "ALPHA_WHALE" || n.role === "WHALE") roleBadge = "badge-green";
+
+            tooltip.innerHTML = \`
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;border-bottom:1px solid #14202c;padding-bottom:2px;">
+                <span class="badge \${roleBadge}">\${escapeHtml(tagText)}</span>
+                <a href="\${solscanLink}" target="_blank" class="mono" style="color:var(--accent);font-weight:700;">\${escapeHtml(found.label)} ↗</a>
+              </div>
+              <div style="display:flex;flex-direction:column;gap:1.5px;font-size:9px;">
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Gross Inflow:</span>
+                  <span class="mono" style="font-weight:700;color:var(--text);">\${solVal} SOL</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Net Position:</span>
+                  <span class="mono" style="font-weight:700;color:var(--green);">\${netSolVal} SOL (\${shareVal}%)</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Trade Activity:</span>
+                  <span class="mono" style="color:#94a3b8;">\${tradesVal} trades</span>
+                </div>
+              </div>
+              <div style="margin-top:3px;padding:3px 5px;background:#060a0f;border:1px solid #131c26;border-radius:2px;font-size:8.5px;color:#cbd5e1;line-height:1.3;">
+                \${escapeHtml(transferInfo)}
+              </div>
+              <div style="display:flex;gap:3px;margin-top:4px;">
+                <button class="btn btn-inspect" style="flex:1;justify-content:center;font-size:8px;padding:1px 3px;" onclick="trackWhale('\${found.id}', '\${escapeHtml(tagText)}');event.stopPropagation();">+ Track Whale</button>
+                <a href="\${solscanLink}" target="_blank" class="btn" style="font-size:8px;padding:1px 4px;">Solscan ↗</a>
+              </div>
+            \`;
+
+            let left = mouseX + 14;
+            let top = mouseY - 10;
+            if (left + 230 > cRect.width) left = mouseX - 235;
+            if (top + 150 > cRect.height) top = Math.max(5, cRect.height - 155);
+            if (left < 5) left = 5;
+            if (top < 5) top = 5;
+            tooltip.style.left = left + "px";
+            tooltip.style.top = top + "px";
+            tooltip.style.display = "block";
+          }
+        } else {
+          canvas.style.cursor = "default";
+          if (hoveredCanvasNodeId !== null) {
+            hoveredCanvasNodeId = null;
+            drawSybilCanvas(canvasId, lastCanvasGraphData);
+          }
+          if (tooltip) tooltip.style.display = "none";
+        }
+      };
+
+      canvas.onmouseleave = function() {
+        canvas.style.cursor = "default";
+        hoveredCanvasNodeId = null;
+        drawSybilCanvas(canvasId, lastCanvasGraphData);
+        const tooltip = document.getElementById("sybil-tooltip");
+        if (tooltip) tooltip.style.display = "none";
+      };
     }
 
     // Live Feed Poller
@@ -1459,6 +1817,14 @@ export function renderDashboardHtml(): string {
               </div>
             </div>\`;
           }).join("");
+        }
+
+        // Render Whale Radar Feed & Tracked Whales Watchlist
+        if (data.whale_trades) {
+          renderWhaleTrades(data.whale_trades);
+        }
+        if (data.tracked_whales) {
+          renderTrackedWhales(data.tracked_whales);
         }
 
         // Render Standard Table View (Alerts Table)
@@ -1641,9 +2007,54 @@ export function renderDashboardHtml(): string {
             <td class="mono">\${inv.pct_share.toFixed(1)}%</td>
             <td><span class="badge \${inv.tag_class}">\${escapeHtml(inv.tag)}</span></td>
             <td class="mono" style="color:var(--text-muted);">\${inv.trades_count}</td>
+            <td>
+              <button class="btn btn-inspect" style="padding:1px 4px;font-size:8px;" onclick="trackWhale('\${inv.wallet}', '\${escapeHtml(inv.tag || 'Whale')}');event.stopPropagation();">+ Track</button>
+            </td>
           </tr>\`).join("");
         } else {
-          whalesBody.innerHTML = \`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:8px;">Early launch state: trades syncing...</td></tr>\`;
+          whalesBody.innerHTML = \`<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:8px;">Early launch state: trades syncing...</td></tr>\`;
+        }
+
+        // Tab 6: Institutional Quantitative Research Memo
+        if (report.research_memo) {
+          const m = report.research_memo;
+          const vBadge = document.getElementById("memo-verdict-badge");
+          if (vBadge) {
+            vBadge.className = "badge " + m.verdict_badge;
+            vBadge.innerText = m.verdict;
+          }
+          const vTitle = document.getElementById("memo-verdict-title");
+          if (vTitle) vTitle.innerText = m.verdict_title;
+          const vSummary = document.getElementById("memo-exec-summary");
+          if (vSummary) vSummary.innerText = m.executive_summary;
+          const cAnalysis = document.getElementById("memo-creator-analysis");
+          if (cAnalysis) cAnalysis.innerText = m.creator_analysis;
+          const capAnalysis = document.getElementById("memo-capital-analysis");
+          if (capAnalysis) capAnalysis.innerText = m.capital_structure_analysis;
+          const sybilAnalysis = document.getElementById("memo-sybil-analysis");
+          if (sybilAnalysis) sybilAnalysis.innerText = m.sybil_threat_analysis;
+          const liqAnalysis = document.getElementById("memo-liquidity-analysis");
+          if (liqAnalysis) liqAnalysis.innerText = m.liquidity_trajectory;
+
+          const actionVal = document.getElementById("memo-action-val");
+          if (actionVal) actionVal.innerText = m.strategy_recommendation.suggested_action;
+          const slipVal = document.getElementById("memo-slippage-val");
+          if (slipVal) slipVal.innerText = m.strategy_recommendation.max_slippage;
+          const jitoVal = document.getElementById("memo-jito-val");
+          if (jitoVal) jitoVal.innerText = m.strategy_recommendation.priority_tip;
+          const riskVal = document.getElementById("memo-risk-val");
+          if (riskVal) {
+            riskVal.innerText = m.strategy_recommendation.risk_level + " RISK";
+            if (m.strategy_recommendation.risk_level === "LOW") riskVal.className = "badge badge-green";
+            else if (m.strategy_recommendation.risk_level === "MODERATE") riskVal.className = "badge badge-cyan";
+            else if (m.strategy_recommendation.risk_level === "HIGH") riskVal.className = "badge badge-yellow";
+            else riskVal.className = "badge badge-red";
+          }
+
+          const memoPhoton = document.getElementById("memo-exec-photon");
+          if (memoPhoton) memoPhoton.href = report.sniper_links.photon;
+          const memoBullx = document.getElementById("memo-exec-bullx");
+          if (memoBullx) memoBullx.href = report.sniper_links.bullx;
         }
 
       } catch (err) {
@@ -1782,10 +2193,13 @@ export function renderDashboardHtml(): string {
               <td class="mono">\${inv.pct_share.toFixed(1)}%</td>
               <td><span class="badge \${inv.tag_class}">\${escapeHtml(inv.tag)}</span></td>
               <td class="mono" style="color:var(--text-muted);">\${inv.trades_count}</td>
+              <td>
+                <button class="btn btn-inspect" style="padding:1px 4px;font-size:8px;" onclick="trackWhale('\${inv.wallet}', '\${escapeHtml(inv.tag || 'Whale')}');event.stopPropagation();">+ Track</button>
+              </td>
             </tr>\`;
           }).join("");
         } else {
-          invBody.innerHTML = \`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:8px;">Early launch state: trades syncing...</td></tr>\`;
+          invBody.innerHTML = \`<tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:8px;">Early launch state: trades syncing...</td></tr>\`;
         }
 
         // Wire 1-Click Fast Sniper Links
@@ -1854,6 +2268,8 @@ export function renderDashboardHtml(): string {
         switchCenterTab("factors");
       } else if (e.key === "5") {
         switchCenterTab("whales");
+      } else if (e.key === "6") {
+        switchCenterTab("memo");
       }
     });
 

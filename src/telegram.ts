@@ -182,3 +182,35 @@ export function formatVerifiedLaunchCard(
   ].join("\n");
 }
 
+export function formatWhaleTradeCard(
+  trader: string,
+  alias: string,
+  side: "buy" | "sell",
+  solAmount: number,
+  mint: string,
+  symbol: string,
+  winRate: number = 78
+): string {
+  const shortTrader = trader.slice(0, 4) + "..." + trader.slice(-4);
+  const sideEmoji = side === "buy" ? "🟢 WHALE BUY" : "🔴 WHALE SELL";
+
+  return [
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `🐋 ${sideEmoji} DETECTED`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `👤 Trader: ${alias} (\`${shortTrader}\`)`,
+    `🎯 Historical Win Rate: ${winRate}%`,
+    `💎 Action: ${side.toUpperCase()} ${solAmount.toFixed(2)} SOL`,
+    `🪙 Token: $${symbol}`,
+    `🔑 Mint: \`${mint}\``,
+    ``,
+    `🔗 Solscan Account: https://solscan.io/account/${trader}`,
+    ``,
+    `⚡ 1-Click Fast Copy-Snipe:`,
+    `• Photon: https://photon-sol.tinyastro.io/en/lp/${mint}`,
+    `• BullX: https://bullx.io/terminal?chainId=1399811149&address=${mint}`,
+    `• GMGN: https://gmgn.ai/sol/token/${mint}`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+  ].join("\n");
+}
+

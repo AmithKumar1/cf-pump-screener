@@ -21,7 +21,12 @@ export interface SybilBubbleNode {
   role: "CREATOR" | "BUNDLED_INSIDER" | "ALPHA_WHALE" | "WHALE" | "INVESTOR";
   color: string;
   sol: number;
+  net_sol: number;
   share_pct: number;
+  trades_count: number;
+  transfer_info: string;
+  solscan_url: string;
+  tag: string;
 }
 
 export interface SybilBubbleLink {
@@ -39,6 +44,23 @@ export interface SybilIntelligence {
   bubble_graph: {
     nodes: SybilBubbleNode[];
     links: SybilBubbleLink[];
+  };
+}
+
+export interface ResearchMemo {
+  verdict: "ACCUMULATE" | "CAUTION" | "AVOID_RUG" | "NEUTRAL";
+  verdict_badge: string;
+  verdict_title: string;
+  executive_summary: string;
+  creator_analysis: string;
+  capital_structure_analysis: string;
+  sybil_threat_analysis: string;
+  liquidity_trajectory: string;
+  strategy_recommendation: {
+    suggested_action: string;
+    max_slippage: string;
+    priority_tip: string;
+    risk_level: "LOW" | "MODERATE" | "HIGH" | "CRITICAL";
   };
 }
 
@@ -108,6 +130,7 @@ export interface TokenInspectionReport {
   // Advanced Quant & Institutional Intelligence
   sybil_intelligence: SybilIntelligence;
   jito_execution: JitoExecutionConfig;
+  research_memo: ResearchMemo;
 
   // 1-Click Fast Sniper Links
   sniper_links: {
@@ -264,7 +287,12 @@ export async function getDetailedTokenInspection(
     role: "CREATOR",
     color: "#f59e0b",
     sol: 0, // updated below once dev buy found
+    net_sol: 0,
     share_pct: 0,
+    trades_count: 1,
+    transfer_info: "Token deployer / initial bonding curve creation",
+    solscan_url: `https://solscan.io/account/${creator}`,
+    tag: "👨‍💻 Creator Deployer",
   });
 
   const investors: InvestorRecord[] = (topRows.results || []).map((row, idx) => {
@@ -274,6 +302,7 @@ export async function getDetailedTokenInspection(
     if (isDev) {
       devBuySol = traderBuy;
       bubbleNodes[0].sol = devBuySol;
+      bubbleNodes[0].net_sol = traderNet;
       bubbleNodes[0].share_pct = Number(((devBuySol / totalPositiveSol) * 100).toFixed(1));
     }
 
@@ -327,7 +356,16 @@ export async function getDetailedTokenInspection(
         role,
         color: nodeColor,
         sol: Number(traderBuy.toFixed(2)),
+        net_sol: Number(traderNet.toFixed(2)),
         share_pct: Number(sharePct.toFixed(1)),
+        trades_count: Number(row.trades_count || 1),
+        transfer_info: isSameSlot
+          ? "🚨 BUNDLE SYBIL: Co-executed in same slot as creator"
+          : traderNet <= 0
+            ? "💨 Scalper: Dumped/exited entire position"
+            : `💎 Conviction Holder: ${traderNet.toFixed(2)} SOL net retained`,
+        solscan_url: `https://solscan.io/account/${row.trader}`,
+        tag,
       });
 
       bubbleLinks.push({
@@ -405,6 +443,54 @@ export async function getDetailedTokenInspection(
     },
   };
 
+  // Generate Structured Institutional Quantitative Research Memo
+  let memoVerdict: "ACCUMULATE" | "CAUTION" | "AVOID_RUG" | "NEUTRAL" = "NEUTRAL";
+  let memoBadge = "badge-cyan";
+  let memoTitle = "DISCOVERY PHASE: EARLY INFLOW";
+  let riskLevel: "LOW" | "MODERATE" | "HIGH" | "CRITICAL" = "MODERATE";
+
+  if (isSerialRugger || rugCheck.score > 500) {
+    memoVerdict = "AVOID_RUG";
+    memoBadge = "badge-red";
+    memoTitle = "CRITICAL HAZARD: SERIAL RUGGER / FAILED AUDIT";
+    riskLevel = "CRITICAL";
+  } else if (isBundledLaunch && insiderHoldingPct > 15) {
+    memoVerdict = "CAUTION";
+    memoBadge = "badge-yellow";
+    memoTitle = "INSIDER BUNDLE DETECTED: HIGH DUMP RISK";
+    riskLevel = "HIGH";
+  } else if (netSol >= 10 && uniqueInvestors >= 10 && !isWhaleConcentrated) {
+    memoVerdict = "ACCUMULATE";
+    memoBadge = "badge-green";
+    memoTitle = "HIGH CONVICTION: ORGANIC DECENTRALIZED ACCUMULATION";
+    riskLevel = "LOW";
+  }
+
+  const researchMemo: ResearchMemo = {
+    verdict: memoVerdict,
+    verdict_badge: memoBadge,
+    verdict_title: memoTitle,
+    executive_summary: `Quantitative analysis for $${symbol} (${name}). Token has registered ${totalTrades} on-chain trades from ${uniqueInvestors} unique participants, deploying ${netSol.toFixed(2)} SOL net capital. ${
+      memoVerdict === "ACCUMULATE"
+        ? "Order flow reflects decentralized accumulation with healthy power-law distribution and low insider clustering."
+        : memoVerdict === "AVOID_RUG"
+        ? "Extreme caution advised: deployer signature correlates with historical serial rugging or high-risk contracts."
+        : "Early discovery phase with active bonding curve progression."
+    }`,
+    creator_analysis: `Deployer wallet ${creatorShort} has launched ${pastLaunches} token(s). Dev initial purchase was ${devBuySol.toFixed(2)} SOL. Serial Rug Index is ${rugIndex.toFixed(2)} (${isSerialRugger ? "FLAGGED: Serial Rugger" : "Clean History"}).`,
+    capital_structure_analysis: `Top 5 wallets control ${top5SharePct.toFixed(1)}% of net capital. Herfindahl-Hirschman Index (HHI) is ${sumSquaredShares.toFixed(3)} (${isWhaleConcentrated ? "High Concentration Risk" : "Broad Organic Decentralization"}). Total gross inflow is ${grossBuySol.toFixed(2)} SOL against ${grossSellSol.toFixed(2)} SOL sell outflow.`,
+    sybil_threat_analysis: isBundledLaunch
+      ? `🚨 Sub-second slot forensics detected ${sameSlotWallets.length} bundled sniper wallets co-executing in identical blocks. Insider ring commands ${insiderHoldingPct.toFixed(1)}% of curve liquidity.`
+      : "✅ Zero same-slot bot bundling detected. Wallet entry timestamps demonstrate natural organic latency.",
+    liquidity_trajectory: `Bonding curve progress is at ${curveProgress.toFixed(1)}% towards the 85.0 SOL Raydium threshold. Requires ${solToGraduation.toFixed(2)} SOL additional net capital to graduate to automated DEX liquidity.`,
+    strategy_recommendation: {
+      suggested_action: memoVerdict === "ACCUMULATE" ? "Aggressive Inflow Scalp with trailing take-profit" : memoVerdict === "AVOID_RUG" ? "Immediate Avoidance / Do Not Deploy Capital" : "Micro-size conviction test only",
+      max_slippage: safeSlippagePct + "%",
+      priority_tip: recommendedTipSol + " SOL (Jito Anti-MEV)",
+      risk_level: riskLevel,
+    },
+  };
+
   return {
     mint,
     name,
@@ -453,6 +539,7 @@ export async function getDetailedTokenInspection(
 
     sybil_intelligence: sybilIntelligence,
     jito_execution: jitoExecution,
+    research_memo: researchMemo,
 
     sniper_links: {
       photon: `https://photon-sol.tinyastro.io/en/lp/${mint}`,
