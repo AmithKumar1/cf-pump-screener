@@ -443,7 +443,7 @@ export async function getDetailedTokenInspection(
   });
 
   const top5SharePct = netSol > 0 ? Math.min(100, (top5NetSol / netSol) * 100) : 0;
-  const isWhaleConcentrated = top5SharePct > 55 || sumSquaredShares > 0.20 || insiderHoldingPct >= 25;
+  const isWhaleConcentrated = top5SharePct > 55 || sumSquaredShares > 0.20 || insiderHoldingPct >= 20.0;
 
   // 6. Parallel live data: RugCheck & DexScreener & Live SOL Price
   const [rugCheck, dexData, solPriceInfo] = await Promise.all([

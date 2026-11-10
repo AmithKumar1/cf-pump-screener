@@ -195,24 +195,49 @@ export function parseHeliusCreate(tx: any): ParsedCreateEvent | null {
 export function isPumpFunTransaction(tx: any, mint?: string): boolean {
   if (!tx || typeof tx !== "object") return false;
 
-  // 1. Explicit Helius source tag for pump.fun or pump.swap
-  if (tx.source === "PUMP_FUN" || tx.source === "PUMP_SWAP") return true;
+  // 1. Explicit Helius source tag for pump.fun bonding curve
+  if (tx.source === "PUMP_FUN") return true;
 
-  // 2. Direct execution on Pump Bonding Curve, Mayhem Mode, PumpSwap AMM, or Pump Fee
   const instructions = Array.isArray(tx.instructions) ? tx.instructions : [];
+
+  // 2. Direct or CPI execution on Pump Core Programs (Bonding Curve or Mayhem Mode)
   for (const ix of instructions) {
-    if (ix?.programId && PUMP_PROGRAM_IDS.has(ix.programId)) return true;
+    if (ix?.programId && PUMP_CORE_PROGRAM_IDS.has(ix.programId)) return true;
     if (Array.isArray(ix?.innerInstructions)) {
       for (const inner of ix.innerInstructions) {
-        if (inner?.programId && PUMP_PROGRAM_IDS.has(inner.programId)) return true;
+        if (inner?.programId && PUMP_CORE_PROGRAM_IDS.has(inner.programId)) return true;
       }
     }
   }
 
-  // 3. Inspect accountData for Pump Program IDs
+  // 3. Inspect accountData for Core Pump Program IDs
   const accountData = Array.isArray(tx.accountData) ? tx.accountData : [];
   for (const acc of accountData) {
-    if (acc?.account && PUMP_PROGRAM_IDS.has(acc.account)) return true;
+    if (acc?.account && PUMP_CORE_PROGRAM_IDS.has(acc.account)) return true;
+  }
+
+  // 4. Execution on PumpSwap AMM is verified only for tokens originating from Pump.fun
+  let hasPumpSwap = tx.source === "PUMP_SWAP";
+  let hasPumpFee = false;
+  for (const ix of instructions) {
+    if (ix?.programId === PUMPSWAP_PROGRAM_ID) hasPumpSwap = true;
+    if (ix?.programId === PUMP_FEE_PROGRAM_ID) hasPumpFee = true;
+    if (Array.isArray(ix?.innerInstructions)) {
+      for (const inner of ix.innerInstructions) {
+        if (inner?.programId === PUMPSWAP_PROGRAM_ID) hasPumpSwap = true;
+        if (inner?.programId === PUMP_FEE_PROGRAM_ID) hasPumpFee = true;
+      }
+    }
+  }
+
+  if (hasPumpSwap || hasPumpFee) {
+    // A PumpSwap pool is accepted only if the token originated on Pump.fun
+    if (mint && (mint.toLowerCase().endsWith("pump") || hasPumpFee)) {
+      return true;
+    }
+    if (!mint && (hasPumpFee || tx.source === "PUMP_SWAP" || hasPumpSwap)) {
+      return true;
+    }
   }
 
   return false;

@@ -219,11 +219,14 @@ describe("Helius Enhanced Transaction Parser", () => {
     };
     assert.equal(isPumpFunTransaction(bondingCurveTx, "any_mint"), true);
 
-    // 2. Valid PumpSwap AMM Program instruction
+    // 2. Valid PumpSwap AMM Program instruction for Pump token
     const pumpSwapTx = {
       instructions: [{ programId: PUMPSWAP_PROGRAM_ID, data: "test" }],
     };
-    assert.equal(isPumpFunTransaction(pumpSwapTx, "any_mint"), true);
+    assert.equal(isPumpFunTransaction(pumpSwapTx, "valid_migrated_token_pump"), true);
+
+    // 2b. Rejection: PumpSwap pool for third-party non-pump token without fee routing
+    assert.equal(isPumpFunTransaction(pumpSwapTx, "arbitrary_external_token_mint"), false);
 
     // 3. Valid Pump Fee Program instruction
     const pumpFeeTx = {
