@@ -1,16 +1,19 @@
 /**
  * Institutional Bloomberg-Grade Live Radar, Whales Forensics & Execution Cockpit.
  * Ported & Enhanced with Quantitative Technologies from E:\QRML:
- * - Bloomberg BLP Signature Aesthetic (Amber #ff9900 & Cyan #00ffff)
- * - Real-Time Macro Ticker Tape (SOL, BTC, Pump Velocity, Jito Tip)
+ * - Ultra-dense Bloomberg BLP Signature Aesthetic (Amber #ff9900 & Cyan #00ffff)
+ * - Zero Space Wastage: Viewport-fitted 100vh Desktop Workstation architecture
+ * - Unified 2-Row Top HUD (Macro Ticker + Telemetry KPIs + Quant Hotkeys in ~50px)
+ * - Non-collapsing 3-Pane Cockpit Grid (Left: Stream | Center: Quant Workstation | Right: Signals)
  * - Multi-Tab Center Command Deck:
- *     1. 🕸️ Arkham Sybil Cluster Canvas (Visual Orbital Graph)
+ *     1. 🕸️ Arkham Sybil Cluster Canvas (Responsive orbital node radar)
  *     2. 📈 Embedded TradingView Candlestick Terminal (DexScreener API)
  *     3. ⚡ HFT Order Book Imbalance (OBI) & Micro-Price Depth Radar
  *     4. 📊 Alpha-158 Quantitative Factor Matrix
+ *     5. 👥 Whales & Allocations Table
  * - Native Web Audio API Acoustic Synthesizer (Sonar pings & de-escalation tones)
  * - Jito Anti-MEV Tip Recommendation & 1-Click Fast Sniper Execution Dock
- * - Quant Hotkeys: [SPACE] Deep Inspect, [P] Photon, [B] BullX, [G] GMGN, [M] Mute, [V] View
+ * - Quant Hotkeys: [SPACE] Deep Inspect, [P] Photon, [B] BullX, [G] GMGN, [M] Mute, [V] View, [1-5] Tabs
  */
 
 export function renderDashboardHtml(): string {
@@ -22,12 +25,12 @@ export function renderDashboardHtml(): string {
   <title>Bloomberg Terminal // Solana Quant Radar & Whales Forensics (BLP)</title>
   <style>
     :root {
-      --bg: #06090c;
-      --card-bg: #0b1015;
-      --card-hover: #101720;
-      --pane-header: #0e141a;
-      --border: #18222d;
-      --border-focus: #00d2ff;
+      --bg: #05080b;
+      --card-bg: #080d12;
+      --card-hover: #0e151d;
+      --pane-header: #0b1117;
+      --border: #141d26;
+      --border-focus: #00ffff;
       --text: #e2e8f0;
       --text-muted: #64748b;
       --accent: #00ffff;
@@ -40,154 +43,174 @@ export function renderDashboardHtml(): string {
       --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
+    html, body {
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
       background: var(--bg);
       color: var(--text);
       font-family: var(--font-mono);
-      font-size: 12px;
-      line-height: 1.5;
-      padding: 10px 14px;
-      overflow-x: hidden;
+      font-size: 11px;
+      line-height: 1.4;
+      display: flex;
+      flex-direction: column;
+      padding: 3px 5px;
     }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
     .mono { font-family: var(--font-mono); }
 
-    /* Bloomberg Amber Command Header */
-    header {
-      background: linear-gradient(90deg, #0e141a 0%, #06090c 100%);
-      border-bottom: 2px solid var(--bbg-amber);
-      padding: 8px 12px;
-      margin-bottom: 8px;
+    /* Custom Sleek Scrollbar */
+    ::-webkit-scrollbar { width: 4px; height: 4px; }
+    ::-webkit-scrollbar-track { background: #070b0e; }
+    ::-webkit-scrollbar-thumb { background: #1c2734; border-radius: 2px; }
+    ::-webkit-scrollbar-thumb:hover { background: var(--bbg-amber); }
+
+    /* TOP HUD ROW 1: Command Header & Ticker Tape (~26px) */
+    .top-bar-row1 {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      flex-wrap: wrap;
+      background: linear-gradient(90deg, #0b1117 0%, #06090d 100%);
+      border: 1px solid var(--border);
+      border-bottom: 1px solid #1a2634;
+      padding: 3px 8px;
+      border-radius: 3px;
       gap: 8px;
-      border-radius: 4px;
+      height: 26px;
+      min-height: 26px;
     }
     .brand {
       display: flex;
       align-items: center;
-      gap: 10px;
-      font-size: 14px;
+      gap: 6px;
+      font-size: 12px;
       font-weight: 800;
-      letter-spacing: 1px;
       color: var(--bbg-amber);
-    }
-    .pulse-dot {
-      width: 8px;
-      height: 8px;
-      background: var(--green);
-      border-radius: 50%;
-      box-shadow: 0 0 8px var(--green);
-      animation: pulse 1.5s infinite;
-    }
-    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.85); } }
-    .status-badge {
-      font-size: 10px;
-      color: var(--accent);
-      background: #10161d;
-      padding: 3px 8px;
-      border-radius: 3px;
-      border: 1px solid rgba(0, 255, 255, 0.25);
-      font-weight: 700;
-    }
-
-    /* Live Macro Ticker Tape (E:\QRML Port) */
-    .ticker-tape {
-      background: #090d12;
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 4px 10px;
-      margin-bottom: 10px;
-      display: flex;
-      overflow-x: auto;
-      gap: 18px;
-      font-size: 11px;
+      letter-spacing: 0.5px;
       white-space: nowrap;
     }
-    .ticker-item { display: inline-flex; gap: 5px; align-items: center; }
-    .ticker-name { color: #94a3b8; font-weight: 600; }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      background: var(--green);
+      border-radius: 50%;
+      box-shadow: 0 0 6px var(--green);
+      animation: pulse 1.5s infinite;
+    }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.8); } }
+
+    .ticker-tape {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      overflow-x: auto;
+      white-space: nowrap;
+      font-size: 10px;
+      scrollbar-width: none;
+    }
+    .ticker-tape::-webkit-scrollbar { display: none; }
+    .ticker-item { display: inline-flex; gap: 4px; align-items: center; }
+    .ticker-name { color: #64748b; font-weight: 600; }
     .ticker-up { color: var(--green); font-weight: 700; }
     .ticker-down { color: var(--red); font-weight: 700; }
-    .ticker-neutral { color: var(--accent); }
+    .ticker-neutral { color: var(--accent); font-weight: 600; }
 
-    /* KPI Bar */
-    .metrics-bar {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 8px;
-      margin-bottom: 10px;
-    }
-    .metric-card {
-      background: var(--card-bg);
-      border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 6px 10px;
-    }
-    .metric-label {
-      font-size: 9px;
-      color: var(--text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 2px;
-    }
-    .metric-val {
-      font-size: 18px;
-      font-weight: 700;
-      color: #f8fafc;
+    .top-controls {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
     }
 
-    /* Hotkeys Control Strip */
-    .command-strip {
+    /* TOP HUD ROW 2: Telemetry KPIs & Hotkeys (~22px) */
+    .top-bar-row2 {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #080c10;
+      background: #070b0e;
       border: 1px solid var(--border);
-      border-radius: 4px;
-      padding: 5px 10px;
-      margin-bottom: 10px;
+      border-top: none;
+      padding: 2px 8px;
       font-size: 10px;
-      flex-wrap: wrap;
+      height: 22px;
+      min-height: 22px;
+      margin-bottom: 4px;
+      border-radius: 0 0 3px 3px;
+      gap: 8px;
+      overflow-x: auto;
+      white-space: nowrap;
+    }
+    .telemetry-pills {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .kpi-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #94a3b8;
+    }
+    .kpi-pill b {
+      color: #f8fafc;
+      font-weight: 700;
+    }
+
+    .hotkeys-strip {
+      display: flex;
+      align-items: center;
       gap: 6px;
+      color: #64748b;
     }
     .hotkey-pill {
-      background: #141c24;
-      border: 1px solid #233140;
-      border-radius: 3px;
-      padding: 1px 5px;
+      background: #10161d;
+      border: 1px solid #1f2c3a;
+      border-radius: 2px;
+      padding: 0 4px;
       font-size: 9px;
       color: var(--bbg-amber);
       font-weight: 700;
-      margin-right: 3px;
+      margin-right: 2px;
     }
 
-    /* Bloomberg 3-Pane Cockpit Grid */
+    /* BLOOMBERG 3-PANE COCKPIT GRID (Zero space wastage) */
     .cockpit-grid {
       display: grid;
-      grid-template-columns: 320px 1fr 340px;
-      gap: 10px;
-      height: calc(100vh - 170px);
-      min-height: 620px;
+      grid-template-columns: 260px minmax(420px, 1fr) 310px;
+      gap: 5px;
+      flex: 1;
+      min-height: 0;
+      height: calc(100vh - 56px);
     }
-    @media (max-width: 1200px) {
+    @media (max-width: 1100px) {
       .cockpit-grid {
-        grid-template-columns: 1fr;
-        height: auto;
+        grid-template-columns: 220px 1fr 260px;
+        gap: 4px;
       }
     }
+    @media (max-width: 850px) {
+      .cockpit-grid {
+        grid-template-columns: 1fr;
+        overflow-y: auto;
+      }
+      .cockpit-pane {
+        height: 380px !important;
+      }
+    }
+
     .cockpit-pane {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 6px;
+      border-radius: 4px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
+      height: 100%;
+      min-height: 0;
     }
     .pane-header {
-      padding: 6px 10px;
+      padding: 4px 8px;
       background: var(--pane-header);
       border-bottom: 1px solid var(--border);
       font-size: 10px;
@@ -198,31 +221,134 @@ export function renderDashboardHtml(): string {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      height: 24px;
+      min-height: 24px;
     }
     .pane-content {
       flex: 1;
+      min-height: 0;
       overflow-y: auto;
-      padding: 8px;
+      padding: 4px;
+      display: flex;
+      flex-direction: column;
     }
 
-    /* Tab Switcher inside Center Pane */
-    .center-tab-strip {
+    /* PANE 1: Solana Firehose Stream Items */
+    .firehose-item {
+      display: flex;
+      flex-direction: column;
+      padding: 3px 6px;
+      border-bottom: 1px solid #10161f;
+      cursor: pointer;
+      transition: background 0.1s ease;
+      border-left: 2px solid transparent;
+    }
+    .firehose-item:hover {
+      background: var(--card-hover);
+    }
+    .firehose-item.active {
+      background: rgba(255, 153, 0, 0.08);
+      border-left: 2px solid var(--bbg-amber);
+    }
+    .firehose-row1 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+    }
+    .firehose-row2 {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 9px;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    /* PANE 2: Center Quant Workstation Hero & Tabs */
+    .token-hero {
+      background: #090e14;
+      border: 1px solid #16212d;
+      border-radius: 3px;
+      padding: 5px 8px;
+      margin-bottom: 4px;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .token-hero-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .token-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #fff;
+      display: inline-flex;
+      align-items: baseline;
+      gap: 6px;
+    }
+    .token-mint-link {
+      font-size: 10px;
+      color: var(--accent);
+      cursor: pointer;
+    }
+    .token-hero-curve {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      color: #94a3b8;
+    }
+    .progress-bar-wrap {
+      background: #0e141a;
+      border-radius: 2px;
+      height: 5px;
+      overflow: hidden;
+      border: 1px solid #182330;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--green), var(--accent));
+      box-shadow: 0 0 6px rgba(0, 255, 255, 0.4);
+      transition: width 0.3s ease;
+    }
+
+    /* Execution & Jito Dock */
+    .exec-dock {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 4px;
+      flex-wrap: wrap;
+      margin-top: 2px;
+    }
+    .exec-btns {
       display: flex;
       gap: 4px;
-      background: #080c10;
+      flex-wrap: wrap;
+    }
+
+    /* Center Tabs */
+    .center-tab-strip {
+      display: flex;
+      gap: 3px;
+      background: #070a0e;
       border-bottom: 1px solid var(--border);
-      padding: 4px 8px;
+      padding: 3px 6px;
+      min-height: 26px;
     }
     .center-tab-btn {
-      background: #111720;
-      border: 1px solid #1c2734;
+      background: #0e141b;
+      border: 1px solid #17222e;
       color: #94a3b8;
       font-size: 10px;
       font-weight: 700;
-      padding: 4px 8px;
-      border-radius: 3px;
+      padding: 2px 7px;
+      border-radius: 2px;
       cursor: pointer;
-      transition: all 0.15s ease;
+      font-family: var(--font-mono);
+      transition: all 0.12s ease;
     }
     .center-tab-btn:hover { color: #fff; border-color: var(--accent); }
     .center-tab-btn.active {
@@ -231,479 +357,484 @@ export function renderDashboardHtml(): string {
       border-color: var(--bbg-amber);
     }
 
-    /* Firehose Items (Left Pane) */
-    .firehose-item {
+    .tab-body {
+      flex: 1;
+      min-height: 0;
       display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 6px 8px;
-      border-bottom: 1px solid #111822;
-      cursor: pointer;
-      transition: background 0.12s ease;
-      border-radius: 3px;
-    }
-    .firehose-item:hover { background: var(--card-hover); }
-    .firehose-item.active {
-      background: rgba(255, 153, 0, 0.12);
-      border-left: 2px solid var(--bbg-amber);
+      flex-direction: column;
+      overflow-y: auto;
+      padding: 4px;
     }
 
-    /* Canvas & Chart Containers */
+    /* Tab 1: Arkham Canvas */
     .canvas-container {
-      background: #06090c;
-      border: 1px solid #151f2b;
-      border-radius: 6px;
-      padding: 8px;
-      text-align: center;
+      flex: 1;
+      min-height: 240px;
+      background: #05080c;
+      border: 1px solid #131d27;
+      border-radius: 3px;
+      display: flex;
+      flex-direction: column;
+      padding: 4px;
       position: relative;
     }
     canvas {
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      min-height: 200px;
       display: block;
-      width: 100%;
-      height: 220px;
     }
+
+    /* Tab 2: TradingView Chart Frame */
     .chart-container {
-      width: 100%;
-      height: 250px;
-      background: #06090c;
-      border-radius: 6px;
+      flex: 1;
+      min-height: 260px;
+      background: #05080c;
+      border: 1px solid #131d27;
+      border-radius: 3px;
       overflow: hidden;
-      border: 1px solid #151f2b;
     }
 
-    /* HFT OBI Radar Visuals */
+    /* Tab 3: HFT OBI Radar */
+    .obi-box {
+      background: #090e14;
+      border: 1px solid #16212d;
+      border-radius: 3px;
+      padding: 6px 8px;
+      margin-bottom: 6px;
+    }
     .obi-meter-wrap {
-      background: #141c24;
-      border-radius: 4px;
-      height: 14px;
-      position: relative;
-      overflow: hidden;
-      margin: 6px 0;
-      border: 1px solid #202c38;
+      background: #11171f;
+      border-radius: 2px;
+      height: 12px;
+      margin: 4px 0;
+      border: 1px solid #1c2734;
       display: flex;
+      overflow: hidden;
     }
-    .obi-bid-side {
-      background: var(--green);
-      height: 100%;
-      transition: width 0.3s ease;
+    .obi-bid-side { background: var(--green); height: 100%; transition: width 0.3s; }
+    .obi-ask-side { background: var(--red); height: 100%; transition: width 0.3s; }
+
+    /* Tab 4: Factor Matrix */
+    .factor-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+      gap: 5px;
     }
-    .obi-ask-side {
-      background: var(--red);
-      height: 100%;
-      transition: width 0.3s ease;
+    .factor-card {
+      background: #090e14;
+      border: 1px solid #16212d;
+      border-radius: 3px;
+      padding: 6px 8px;
+    }
+    .factor-title {
+      font-size: 9px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .factor-val {
+      font-size: 14px;
+      font-weight: 700;
     }
 
-    /* Badges */
+    /* PANE 3: Dispatched Signals */
+    .signal-card {
+      background: #080d12;
+      border: 1px solid #16212d;
+      border-radius: 3px;
+      padding: 4px 6px;
+      margin-bottom: 4px;
+      cursor: pointer;
+      transition: background 0.1s ease;
+    }
+    .signal-card:hover {
+      background: var(--card-hover);
+    }
+    .signal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2px;
+    }
+    .signal-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 9px;
+      color: var(--text-muted);
+    }
+    .signal-actions {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 3px;
+      gap: 4px;
+    }
+
+    /* Badges & Buttons */
     .badge {
       display: inline-block;
-      padding: 1px 5px;
-      border-radius: 3px;
-      font-size: 9px;
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-size: 8px;
       font-weight: 700;
       text-transform: uppercase;
     }
-    .badge-green { background: rgba(0, 255, 102, 0.15); color: var(--green); border: 1px solid rgba(0, 255, 102, 0.3); }
-    .badge-red { background: rgba(255, 51, 68, 0.15); color: var(--red); border: 1px solid rgba(255, 51, 68, 0.3); }
-    .badge-yellow { background: rgba(245, 158, 11, 0.15); color: var(--yellow); border: 1px solid rgba(245, 158, 11, 0.3); }
-    .badge-purple { background: rgba(168, 85, 247, 0.15); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.3); }
-    .badge-amber { background: rgba(255, 153, 0, 0.15); color: var(--bbg-amber); border: 1px solid rgba(255, 153, 0, 0.3); }
-    .badge-cyan { background: rgba(0, 255, 255, 0.15); color: var(--accent); border: 1px solid rgba(0, 255, 255, 0.3); }
-    .badge-muted { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--border); }
+    .badge-green { background: rgba(0, 255, 102, 0.12); color: var(--green); border: 1px solid rgba(0, 255, 102, 0.3); }
+    .badge-red { background: rgba(255, 51, 68, 0.12); color: var(--red); border: 1px solid rgba(255, 51, 68, 0.3); }
+    .badge-yellow { background: rgba(245, 158, 11, 0.12); color: var(--yellow); border: 1px solid rgba(245, 158, 11, 0.3); }
+    .badge-purple { background: rgba(168, 85, 247, 0.12); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.3); }
+    .badge-amber { background: rgba(255, 153, 0, 0.12); color: var(--bbg-amber); border: 1px solid rgba(255, 153, 0, 0.3); }
+    .badge-cyan { background: rgba(0, 255, 255, 0.12); color: var(--accent); border: 1px solid rgba(0, 255, 255, 0.3); }
+    .badge-muted { background: rgba(255, 255, 255, 0.04); color: var(--text-muted); border: 1px solid var(--border); }
 
-    /* Buttons */
     .btn {
-      background: #121820;
-      border: 1px solid var(--border);
+      background: #10161d;
+      border: 1px solid #1a2533;
       color: var(--text);
-      padding: 4px 8px;
-      border-radius: 3px;
+      padding: 2px 6px;
+      border-radius: 2px;
       cursor: pointer;
-      font-size: 10px;
+      font-size: 9px;
       font-weight: 700;
       display: inline-flex;
       align-items: center;
       gap: 3px;
-      transition: all 0.12s ease;
       font-family: var(--font-mono);
+      transition: all 0.1s ease;
     }
-    .btn:hover { background: #1c2632; border-color: #2b3b4d; }
+    .btn:hover { background: #182330; border-color: #2a3a4d; }
     .btn-inspect {
-      background: rgba(0, 255, 255, 0.12);
-      border: 1px solid rgba(0, 255, 255, 0.4);
+      background: rgba(0, 255, 255, 0.1);
+      border: 1px solid rgba(0, 255, 255, 0.3);
       color: var(--accent);
     }
-    .btn-inspect:hover { background: rgba(0, 255, 255, 0.25); border-color: var(--accent); }
+    .btn-inspect:hover { background: rgba(0, 255, 255, 0.2); }
 
-    /* Progress bar */
-    .progress-bar-wrap {
-      background: #111720;
-      border-radius: 3px;
-      height: 7px;
-      overflow: hidden;
-      margin-top: 5px;
-      border: 1px solid #1a2532;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, var(--green), var(--accent));
-      box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
-      transition: width 0.3s ease;
-    }
+    /* Tables */
+    table { width: 100%; border-collapse: collapse; text-align: left; font-size: 10px; }
+    th { background: #070a0e; color: var(--text-muted); padding: 4px 6px; border-bottom: 1px solid var(--border); }
+    td { padding: 3px 6px; border-bottom: 1px solid #0e141c; }
+    tr:hover td { background: rgba(255, 255, 255, 0.02); }
 
     /* Modal Backdrop */
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(2, 5, 8, 0.9);
-      backdrop-filter: blur(8px);
+      background: rgba(2, 5, 8, 0.88);
+      backdrop-filter: blur(6px);
       z-index: 9999;
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 12px;
+      padding: 10px;
     }
     .modal-backdrop.open { display: flex; }
     .modal-window {
-      background: #090e13;
-      border: 1px solid #1f2c3a;
-      border-radius: 8px;
+      background: #080d12;
+      border: 1px solid #1c2836;
+      border-radius: 4px;
       width: 100%;
-      max-width: 960px;
-      max-height: 92vh;
+      max-width: 900px;
+      max-height: 90vh;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9);
-      animation: modalFadeIn 0.15s ease-out;
-    }
-    @keyframes modalFadeIn {
-      from { opacity: 0; transform: scale(0.98); }
-      to { opacity: 1; transform: scale(1); }
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.9);
     }
     .modal-header {
-      padding: 12px 16px;
+      padding: 8px 12px;
       border-bottom: 2px solid var(--bbg-amber);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #0c1218;
-      border-top-left-radius: 8px;
-      border-top-right-radius: 8px;
+      background: #0b1117;
     }
     .modal-body {
-      padding: 16px;
+      padding: 12px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 12px;
-    }
-    .modal-footer {
-      padding: 10px 16px;
-      border-top: 1px solid var(--border);
-      background: #0c1218;
-      border-bottom-left-radius: 8px;
-      border-bottom-right-radius: 8px;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
       gap: 8px;
     }
-
-    /* Bento Grid */
-    .bento-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 10px;
-    }
-    .bento-card {
-      background: #0c1218;
-      border: 1px solid #16212c;
-      border-radius: 5px;
-      padding: 10px;
-    }
-    .bento-card-title {
-      font-size: 10px;
-      font-weight: 700;
-      color: var(--bbg-amber);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 6px;
+    .modal-footer {
+      padding: 6px 12px;
+      border-top: 1px solid var(--border);
+      background: #0b1117;
       display: flex;
       justify-content: space-between;
       align-items: center;
     }
 
-    /* Tables */
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      text-align: left;
-      font-size: 11px;
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 6px;
     }
-    th {
-      background: #080c10;
-      color: var(--text-muted);
-      font-weight: 700;
-      padding: 6px 8px;
-      border-bottom: 1px solid var(--border);
-      white-space: nowrap;
+    .bento-card {
+      background: #090e14;
+      border: 1px solid #141f2a;
+      border-radius: 3px;
+      padding: 8px;
     }
-    td {
-      padding: 6px 8px;
-      border-bottom: 1px solid #10161f;
-      vertical-align: middle;
-      white-space: nowrap;
-    }
-    tr:hover td { background: rgba(255, 255, 255, 0.02); }
 
     .view-standard { display: none; }
-    body.standard-view .view-standard { display: block; }
+    body.standard-view .view-standard { display: block; overflow-y: auto; height: calc(100vh - 56px); }
     body.standard-view .view-cockpit { display: none; }
   </style>
 </head>
 <body>
-  <!-- Header -->
-  <header>
+  <!-- ======================================================== -->
+  <!-- TOP BAR ROW 1: Brand, Macro Ticker Tape & System Controls-->
+  <!-- ======================================================== -->
+  <div class="top-bar-row1">
     <div class="brand">
       <div class="pulse-dot"></div>
-      <span>BLOOMBERG // SOLANA QUANT COCKPIT <span style="color:#64748b;font-weight:400;font-size:11px;">[QRML / CITADEL SPEC]</span></span>
-      <span class="status-badge">BLP TERMINAL v3.0</span>
+      <span>BLOOMBERG // SOLANA QUANT COCKPIT</span>
+      <span class="badge badge-cyan" style="font-size:8px;">BLP v3.1</span>
     </div>
-    <div style="display:flex;align-items:center;gap:8px;">
-      <span class="mono" id="clock" style="color:var(--text-muted);font-size:11px;">--:--:-- UTC</span>
+
+    <!-- Live Macro Ticker Tape (E:\QRML Port) -->
+    <div class="ticker-tape">
+      <div class="ticker-item"><span class="ticker-name">SOL</span> <span class="ticker-up" id="t-sol">$184.20 (+4.8%)</span></div>
+      <div class="ticker-item"><span class="ticker-name">BTC</span> <span class="ticker-up" id="t-btc">$89,450 (+2.1%)</span></div>
+      <div class="ticker-item"><span class="ticker-name">GAS</span> <span class="ticker-neutral">5k lamports</span></div>
+      <div class="ticker-item"><span class="ticker-name">JITO TIP</span> <span class="ticker-up">0.003 SOL</span></div>
+      <div class="ticker-item"><span class="ticker-name">VELOCITY</span> <span class="ticker-neutral" id="t-rate">~60/min</span></div>
+      <div class="ticker-item"><span class="ticker-name">GRAD RATE</span> <span class="ticker-neutral">1.4%</span></div>
+      <div class="ticker-item"><span class="ticker-name">MEV GUARD</span> <span class="ticker-up">ACTIVE</span></div>
+      <div class="ticker-item"><span class="ticker-name">STATUS</span> <span class="ticker-up">100% OK</span></div>
+    </div>
+
+    <div class="top-controls">
+      <span class="mono" id="clock" style="color:#94a3b8;font-size:10px;">--:--:-- UTC</span>
       <button class="btn" id="audio-toggle-btn" onclick="toggleAudio()" style="color:var(--green);">🔊 Audio: ARMED</button>
-      <button class="btn" id="view-toggle-btn" onclick="toggleLayout()">🖥️ Cockpit Mode</button>
-      <a href="https://t.me/memcoinhome_bot" target="_blank" class="btn" style="background:#2481cc;border-color:#2481cc;color:#fff;">@memcoinhome_bot ↗</a>
-    </div>
-  </header>
-
-  <!-- Live Macro Ticker Tape Ribbon -->
-  <div class="ticker-tape">
-    <div class="ticker-item"><span class="ticker-name">SOL/USD</span> <span class="ticker-up" id="t-sol">$184.20 (+4.8%)</span></div>
-    <div class="ticker-item"><span class="ticker-name">BTC/USD</span> <span class="ticker-up" id="t-btc">$89,450 (+2.1%)</span></div>
-    <div class="ticker-item"><span class="ticker-name">SOL GAS</span> <span class="ticker-neutral">0.000005 SOL</span></div>
-    <div class="ticker-item"><span class="ticker-name">JITO BASE TIP</span> <span class="ticker-up">0.003 SOL (~$0.60)</span></div>
-    <div class="ticker-item"><span class="ticker-name">PUMP INGESTION</span> <span class="ticker-neutral" id="t-rate">~60/min</span></div>
-    <div class="ticker-item"><span class="ticker-name">RAYDIUM GRADUATION RATE</span> <span class="ticker-neutral">1.4%</span></div>
-    <div class="ticker-item"><span class="ticker-name">MEV PROTECTION</span> <span class="ticker-up">ACTIVE</span></div>
-    <div class="ticker-item"><span class="ticker-name">SYSTEM HEALTH</span> <span class="ticker-up">100% OK</span></div>
-  </div>
-
-  <!-- KPI Bar -->
-  <div class="metrics-bar">
-    <div class="metric-card">
-      <div class="metric-label">Launches Logged</div>
-      <div class="metric-val" id="metric-launches">--</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Live Ingestion Rate</div>
-      <div class="metric-val" id="metric-rate" style="color:var(--accent);">~60/min</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Verified Socials Found</div>
-      <div class="metric-val" id="metric-socials" style="color:var(--green);">--</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Serial Ruggers Blocked</div>
-      <div class="metric-val" id="metric-blocked" style="color:var(--red);">--</div>
-    </div>
-    <div class="metric-card">
-      <div class="metric-label">Quant Signals Dispatched</div>
-      <div class="metric-val" id="metric-alerts" style="color:var(--purple);">--</div>
+      <button class="btn" id="view-toggle-btn" onclick="toggleLayout()">🖥️ Cockpit</button>
+      <a href="https://t.me/memcoinhome_bot" target="_blank" class="btn" style="background:#2481cc;border-color:#2481cc;color:#fff;">TG Bot ↗</a>
     </div>
   </div>
 
-  <!-- Command Strip with Quant Hotkeys -->
-  <div class="command-strip">
-    <div>
-      <span style="color:var(--text-muted);margin-right:8px;">QUANT HOTKEYS:</span>
-      <span><span class="hotkey-pill">SPACE</span>Deep Inspect</span>
-      <span><span class="hotkey-pill">P</span>Photon Snipe</span>
-      <span><span class="hotkey-pill">B</span>BullX Snipe</span>
-      <span><span class="hotkey-pill">G</span>GMGN Snipe</span>
-      <span><span class="hotkey-pill">M</span>Mute Audio</span>
-      <span><span class="hotkey-pill">V</span>Switch View</span>
+  <!-- ======================================================== -->
+  <!-- TOP BAR ROW 2: Telemetry KPIs & Quant Hotkeys Strip      -->
+  <!-- ======================================================== -->
+  <div class="top-bar-row2">
+    <div class="telemetry-pills">
+      <span class="kpi-pill">LAUNCHES: <b id="metric-launches">--</b></span>
+      <span style="color:#202c38;">|</span>
+      <span class="kpi-pill">INGESTION: <span class="badge badge-cyan" id="metric-rate">~60/min</span></span>
+      <span style="color:#202c38;">|</span>
+      <span class="kpi-pill">VERIFIED SOCIALS: <span class="badge badge-green" id="metric-socials">--</span></span>
+      <span style="color:#202c38;">|</span>
+      <span class="kpi-pill">RUGGERS BLOCKED: <span class="badge badge-red" id="metric-blocked">--</span></span>
+      <span style="color:#202c38;">|</span>
+      <span class="kpi-pill">SIGNALS DISPATCHED: <span class="badge badge-purple" id="metric-alerts">--</span></span>
     </div>
-    <div style="color:var(--text-muted);">
-      <span id="feed-status">Sub-second Geyser Webhook Live</span>
+
+    <div class="hotkeys-strip">
+      <span style="color:#64748b;margin-right:2px;">HOTKEYS:</span>
+      <span><span class="hotkey-pill">SPACE</span>Inspect</span>
+      <span><span class="hotkey-pill">P</span>Photon</span>
+      <span><span class="hotkey-pill">B</span>BullX</span>
+      <span><span class="hotkey-pill">G</span>GMGN</span>
+      <span><span class="hotkey-pill">M</span>Mute</span>
+      <span><span class="hotkey-pill">1-5</span>Tabs</span>
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- 1. BLOOMBERG 3-PANE COCKPIT VIEW           -->
-  <!-- ========================================== -->
+  <!-- ======================================================== -->
+  <!-- 1. BLOOMBERG 3-PANE COCKPIT VIEW                         -->
+  <!-- ======================================================== -->
   <div class="view-cockpit cockpit-grid">
-    <!-- PANE 1: Solana Firehose Ingestion Feed -->
+    <!-- PANE 1: Solana Firehose Stream (Left ~260px) -->
     <div class="cockpit-pane">
       <div class="pane-header">
-        <span>⚡ Solana Firehose Stream</span>
-        <span class="mono" style="font-size:9px;color:var(--accent);">L1 Ingest</span>
+        <span>⚡ Solana Stream (L1 Ingest)</span>
+        <span class="mono" style="font-size:8px;color:var(--accent);" id="p1-status">Live 3s</span>
       </div>
-      <div class="pane-content" id="firehose-list" style="padding:4px;">
-        <div style="text-align:center;padding:30px;color:var(--text-muted);">Syncing edge firehose...</div>
+      <div class="pane-content" id="firehose-list" style="padding:2px;">
+        <div style="text-align:center;padding:20px;color:var(--text-muted);">Syncing edge firehose...</div>
       </div>
     </div>
 
-    <!-- PANE 2: Center Multi-Tab Command Deck -->
+    <!-- PANE 2: Center Quant Workstation Deck (1fr) -->
     <div class="cockpit-pane">
-      <!-- Multi-Tab Navigation Ribbon -->
-      <div class="center-tab-strip">
-        <button class="center-tab-btn active" id="tab-btn-sybil" onclick="switchCenterTab('sybil')">🕸️ Arkham Sybil Graph</button>
-        <button class="center-tab-btn" id="tab-btn-tv" onclick="switchCenterTab('tv')">📈 TradingView Live Chart</button>
-        <button class="center-tab-btn" id="tab-btn-obi" onclick="switchCenterTab('obi')">⚡ HFT OBI Radar</button>
-        <button class="center-tab-btn" id="tab-btn-factors" onclick="switchCenterTab('factors')">📊 Alpha-158 Factors</button>
+      <!-- Active Token Command Header -->
+      <div class="token-hero">
+        <div class="token-hero-top">
+          <div class="token-title">
+            <span id="c-token-name">Select a Token</span>
+            <span class="mono token-mint-link" id="c-token-mint" onclick="copyActiveMint()" title="Click to copy mint address">--</span>
+          </div>
+          <button class="btn btn-inspect" onclick="openActiveTokenModal()">Full Inspect [Space] ↗</button>
+        </div>
+
+        <div class="token-hero-curve">
+          <span id="c-curve-text">0.0% to Raydium</span>
+          <span id="c-net-sol" style="color:var(--green);font-weight:700;">0.00 SOL Raised</span>
+          <span id="c-mcap" style="color:var(--yellow);font-weight:600;">MCap: --</span>
+        </div>
+        <div class="progress-bar-wrap">
+          <div class="progress-bar-fill" id="c-curve-bar" style="width:0%;"></div>
+        </div>
+
+        <!-- 1-Click Fast Sniper & Anti-MEV Dock -->
+        <div class="exec-dock">
+          <div class="exec-btns">
+            <a id="c-btn-photon" href="#" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;">⚡ Photon [P]</a>
+            <a id="c-btn-bullx" href="#" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;">🎯 BullX [B]</a>
+            <a id="c-btn-gmgn" href="#" target="_blank" class="btn" style="background:#00d2ff;color:#000;font-weight:700;">🤖 GMGN [G]</a>
+            <a id="c-btn-dexs" href="#" target="_blank" class="btn">DexScreener</a>
+            <a id="c-btn-pump" href="#" target="_blank" class="btn">Pump.fun</a>
+          </div>
+          <span id="c-jito-tip" class="badge badge-amber">Jito: 0.003 SOL</span>
+        </div>
       </div>
 
-      <div class="pane-content">
-        <!-- Active Token Hero Banner -->
-        <div class="bento-card" style="margin-bottom:8px;background:#0d141b;border-color:#1d2a37;">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
-            <div>
-              <div style="font-size:16px;font-weight:800;color:#fff;" id="c-token-name">Select a Token</div>
-              <div class="mono" style="font-size:11px;color:var(--accent);" id="c-token-mint">--</div>
-            </div>
-            <button class="btn btn-inspect" onclick="openActiveTokenModal()">Full Inspect [Space] ↗</button>
-          </div>
+      <!-- Center Multi-Tab Ribbon -->
+      <div class="center-tab-strip">
+        <button class="center-tab-btn active" id="tab-btn-sybil" onclick="switchCenterTab('sybil')">[1] 🕸️ Arkham Sybil</button>
+        <button class="center-tab-btn" id="tab-btn-tv" onclick="switchCenterTab('tv')">[2] 📈 TradingView</button>
+        <button class="center-tab-btn" id="tab-btn-obi" onclick="switchCenterTab('obi')">[3] ⚡ HFT OBI Radar</button>
+        <button class="center-tab-btn" id="tab-btn-factors" onclick="switchCenterTab('factors')">[4] 📊 Alpha-158</button>
+        <button class="center-tab-btn" id="tab-btn-whales" onclick="switchCenterTab('whales')">[5] 👥 Whales Book</button>
+      </div>
 
-          <!-- Curve Progress Dial -->
-          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:6px;">
-            <span id="c-curve-text">0.0% to Raydium</span>
-            <span id="c-net-sol">0.00 SOL Raised</span>
+      <!-- Tab 1: Arkham Sybil Bubble Canvas -->
+      <div id="view-tab-sybil" class="tab-body">
+        <div class="canvas-container">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;font-size:9px;">
+            <span style="color:var(--bbg-amber);font-weight:700;">ARKHAM SYBIL CLUSTER ENGINE</span>
+            <span id="c-cluster-verdict" class="badge badge-green">Organic Decentralized Flow</span>
           </div>
-          <div class="progress-bar-wrap">
-            <div class="progress-bar-fill" id="c-curve-bar" style="width:0%;"></div>
+          <canvas id="sybil-canvas"></canvas>
+          <div style="display:flex;justify-content:center;gap:12px;font-size:9px;color:var(--text-muted);margin-top:2px;">
+            <span><span style="color:#f59e0b;">●</span> Dev Wallet</span>
+            <span><span style="color:#ff3344;">●</span> Bundled Insider</span>
+            <span><span style="color:#00ff66;">●</span> Whale</span>
+            <span><span style="color:#00ffff;">●</span> Early Buyer</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab 2: Embedded TradingView Candlestick Terminal -->
+      <div id="view-tab-tv" class="tab-body" style="display:none;">
+        <div class="chart-container">
+          <iframe id="c-tradingview-frame" src="" style="width:100%;height:100%;border:none;background:#05080c;"></iframe>
+        </div>
+      </div>
+
+      <!-- Tab 3: HFT Order Book Imbalance (OBI) & Micro-Price Depth Radar -->
+      <div id="view-tab-obi" class="tab-body" style="display:none;">
+        <div class="obi-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;font-size:10px;font-weight:700;">
+            <span style="color:var(--bbg-amber);">HFT ORDER BOOK IMBALANCE (OBI) METER</span>
+            <span id="obi-status-badge" class="badge badge-green">ACCUMULATION</span>
+          </div>
+          <div style="font-size:10px;color:var(--text-muted);display:flex;justify-content:space-between;margin-top:3px;">
+            <span id="obi-bid-label">Bid Flow: 0.00 SOL</span>
+            <span id="obi-ask-label">Ask Flow: 0.00 SOL</span>
+          </div>
+          <div class="obi-meter-wrap">
+            <div class="obi-bid-side" id="obi-bid-bar" style="width:50%;"></div>
+            <div class="obi-ask-side" id="obi-ask-bar" style="width:50%;"></div>
+          </div>
+          <div style="display:flex;justify-content:space-between;font-size:9px;">
+            <span class="mono" id="obi-ratio-text">OBI Ratio: K = +0.000</span>
+            <span class="mono" id="obi-micro-text">Micro-Price Drift: 0.00%</span>
           </div>
         </div>
 
-        <!-- TAB 1: Arkham Sybil Bubble Canvas -->
-        <div id="view-tab-sybil">
-          <div class="canvas-container">
-            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:10px;color:var(--text-muted);">
-              <span style="color:var(--bbg-amber);font-weight:700;">ARKHAM SYBIL CLUSTER ENGINE</span>
-              <span id="c-cluster-verdict" class="badge badge-green">Organic Flow</span>
-            </div>
-            <canvas id="sybil-canvas"></canvas>
-            <div style="display:flex;justify-content:center;gap:12px;font-size:10px;color:var(--text-muted);margin-top:4px;">
-              <span><span style="color:#f59e0b;">●</span> Dev Wallet</span>
-              <span><span style="color:#ff3344;">●</span> Bundled Insider</span>
-              <span><span style="color:#00ff66;">●</span> Whale</span>
-              <span><span style="color:#00ffff;">●</span> Early Buyer</span>
-            </div>
+        <div class="obi-box" style="flex:1;">
+          <div style="font-size:10px;font-weight:700;color:var(--bbg-amber);margin-bottom:4px;">LEVEL-2 LIQUIDITY WALL MATRIX</div>
+          <div style="font-size:10px;display:flex;flex-direction:column;gap:3px;" id="obi-ladder-box">
+            <div style="text-align:center;color:var(--text-muted);padding:8px;">Select token to load L2 microstructural ladder...</div>
           </div>
         </div>
+      </div>
 
-        <!-- TAB 2: Embedded TradingView Candlestick Terminal -->
-        <div id="view-tab-tv" style="display:none;">
-          <div class="chart-container">
-            <iframe id="c-tradingview-frame" src="" style="width:100%;height:100%;border:none;background:#06090c;"></iframe>
+      <!-- Tab 4: Alpha-158 Quantitative Factor Matrix -->
+      <div id="view-tab-factors" class="tab-body" style="display:none;">
+        <div class="factor-grid">
+          <div class="factor-card">
+            <div class="factor-title">🚀 MOMENTUM DRIFT</div>
+            <div class="factor-val" id="f-mom" style="color:var(--green);">-- SOL/trade</div>
+            <div style="font-size:8px;color:var(--text-muted);">Curve capital inflow velocity</div>
+          </div>
+          <div class="factor-card">
+            <div class="factor-title">⚖️ ORDER FLOW IMBALANCE (OFI)</div>
+            <div class="factor-val" id="f-ofi" style="color:var(--accent);">--%</div>
+            <div style="font-size:8px;color:var(--text-muted);">Net buy pressure asymmetry</div>
+          </div>
+          <div class="factor-card">
+            <div class="factor-title">☣️ TOXICITY RATIO (VPIN)</div>
+            <div class="factor-val" id="f-vpin" style="color:var(--yellow);">--%</div>
+            <div style="font-size:8px;color:var(--text-muted);">Adverse informed toxicity</div>
+          </div>
+          <div class="factor-card">
+            <div class="factor-title">⚡ HAWKES SUPERCRITICALITY (η)</div>
+            <div class="factor-val" id="f-hawkes" style="color:var(--purple);">η = 0.50</div>
+            <div style="font-size:8px;color:var(--text-muted);">Self-exciting viral cascade</div>
+          </div>
+          <div class="factor-card">
+            <div class="factor-title">🌐 SHANNON CAPITAL ENTROPY</div>
+            <div class="factor-val" id="f-entropy" style="color:#38bdf8;">-- bits</div>
+            <div style="font-size:8px;color:var(--text-muted);">Decentralization of holder base</div>
+          </div>
+          <div class="factor-card">
+            <div class="factor-title">🛡️ SERIAL RUG INDEX (SRI)</div>
+            <div class="factor-val" id="f-sri" style="color:var(--green);">0.00 (Clean)</div>
+            <div style="font-size:8px;color:var(--text-muted);">Deployer historical track record</div>
           </div>
         </div>
+      </div>
 
-        <!-- TAB 3: HFT Order Book Imbalance (OBI) & Micro-Price Depth Radar -->
-        <div id="view-tab-obi" style="display:none;">
-          <div class="bento-card" style="margin-bottom:8px;">
-            <div class="bento-card-title">
-              <span>HFT ORDER BOOK IMBALANCE (OBI) METER</span>
-              <span id="obi-status-badge" class="badge badge-green">ACCUMULATION</span>
-            </div>
-            <div style="font-size:11px;color:var(--text-muted);display:flex;justify-content:space-between;">
-              <span id="obi-bid-label">Bid Flow: 0 SOL</span>
-              <span id="obi-ask-label">Ask Flow: 0 SOL</span>
-            </div>
-            <div class="obi-meter-wrap">
-              <div class="obi-bid-side" id="obi-bid-bar" style="width:50%;"></div>
-              <div class="obi-ask-side" id="obi-ask-bar" style="width:50%;"></div>
-            </div>
-            <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:4px;">
-              <span class="mono" id="obi-ratio-text">OBI Ratio: K = +0.000</span>
-              <span class="mono" id="obi-micro-text">Micro-Price Drift: 0.00%</span>
-            </div>
-          </div>
-          <div class="bento-card">
-            <div class="bento-card-title">LEVEL-2 LIQUIDITY WALL MATRIX</div>
-            <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;" id="obi-ladder-box">
-              <div style="text-align:center;color:var(--text-muted);padding:10px;">Select token to load L2 microstructural ladder...</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- TAB 4: Alpha-158 Quantitative Factor Matrix -->
-        <div id="view-tab-factors" style="display:none;">
-          <div class="bento-grid">
-            <div class="bento-card">
-              <div class="bento-card-title">🚀 MOMENTUM DRIFT (MOM_5M)</div>
-              <div class="metric-val" id="f-mom" style="color:var(--green);font-size:16px;">-- SOL/min</div>
-              <div style="font-size:9px;color:var(--text-muted);">Curve capital inflow velocity</div>
-            </div>
-            <div class="bento-card">
-              <div class="bento-card-title">⚖️ ORDER FLOW IMBALANCE (OFI)</div>
-              <div class="metric-val" id="f-ofi" style="color:var(--accent);font-size:16px;">--%</div>
-              <div style="font-size:9px;color:var(--text-muted);">Net buy pressure asymmetry</div>
-            </div>
-            <div class="bento-card">
-              <div class="bento-card-title">☣️ TOXICITY RATIO (VPIN)</div>
-              <div class="metric-val" id="f-vpin" style="color:var(--yellow);font-size:16px;">--%</div>
-              <div style="font-size:9px;color:var(--text-muted);">Adverse informed toxicity</div>
-            </div>
-            <div class="bento-card">
-              <div class="bento-card-title">⚡ HAWKES SUPERCRITICALITY (η)</div>
-              <div class="metric-val" id="f-hawkes" style="color:var(--purple);font-size:16px;">η = 0.50</div>
-              <div style="font-size:9px;color:var(--text-muted);">Self-exciting viral cascade</div>
-            </div>
-            <div class="bento-card">
-              <div class="bento-card-title">🌐 SHANNON CAPITAL ENTROPY</div>
-              <div class="metric-val" id="f-entropy" style="color:#38bdf8;font-size:16px;">-- bits</div>
-              <div style="font-size:9px;color:var(--text-muted);">Decentralization of holder base</div>
-            </div>
-            <div class="bento-card">
-              <div class="bento-card-title">🛡️ SERIAL RUG INDEX (SRI)</div>
-              <div class="metric-val" id="f-sri" style="color:var(--green);font-size:16px;">0.00 (Clean)</div>
-              <div style="font-size:9px;color:var(--text-muted);">Deployer historical track record</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Jito Anti-MEV Tip & Fast Execution Command Dock -->
-        <div class="bento-card" style="background:#090d12;border-color:#1c2836;margin-top:8px;">
-          <div class="bento-card-title">
-            <span>⚡ JITO ANTI-MEV GATEWAY & 1-CLICK EXECUTION</span>
-            <span id="c-jito-tip" class="badge badge-amber">Rec. Tip: 0.003 SOL</span>
-          </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(95px, 1fr));gap:6px;margin-top:6px;">
-            <a id="c-btn-photon" href="#" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;justify-content:center;">⚡ Photon [P]</a>
-            <a id="c-btn-bullx" href="#" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;justify-content:center;">🎯 BullX [B]</a>
-            <a id="c-btn-gmgn" href="#" target="_blank" class="btn" style="background:#00d2ff;color:#000;font-weight:700;justify-content:center;">🤖 GMGN [G]</a>
-            <a id="c-btn-dexs" href="#" target="_blank" class="btn" style="justify-content:center;">DexScreener</a>
-            <a id="c-btn-pump" href="#" target="_blank" class="btn" style="justify-content:center;">Pump.fun</a>
-          </div>
+      <!-- Tab 5: Whales & Allocations Book -->
+      <div id="view-tab-whales" class="tab-body" style="display:none;">
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Wallet</th>
+                <th>Net SOL</th>
+                <th>Gross Buy</th>
+                <th>Share %</th>
+                <th>Tag</th>
+                <th>Trades</th>
+              </tr>
+            </thead>
+            <tbody id="c-whales-body">
+              <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:8px;">Select a token to load whale distribution...</td></tr>
+            </tbody>
+          </table>
         </div>
       </div>
     </div>
 
-    <!-- PANE 3: Dispatched Signals & Whale Allocations -->
+    <!-- PANE 3: Dispatched Signals & Whales (Right ~310px) -->
     <div class="cockpit-pane">
       <div class="pane-header">
         <span>🚨 Dispatched Signals (@memcoinhome_bot)</span>
         <span class="mono" id="c-signals-count" style="font-size:9px;color:var(--purple);">0 Active</span>
       </div>
-      <div class="pane-content" style="padding:4px;">
+      <div class="pane-content" style="padding:3px;">
         <div id="c-alerts-list">
-          <div style="text-align:center;padding:24px;color:var(--text-muted);">Awaiting high-conviction signals...</div>
+          <div style="text-align:center;padding:20px;color:var(--text-muted);">Awaiting high-conviction signals...</div>
         </div>
       </div>
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- 2. STANDARD FULL-WIDTH TABLES VIEW         -->
-  <!-- ========================================== -->
+  <!-- ======================================================== -->
+  <!-- 2. STANDARD FULL-WIDTH TABLES VIEW                       -->
+  <!-- ======================================================== -->
   <div class="view-standard">
     <!-- Recent Alerts Table -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--bbg-amber);">🚨 Dispatched Quant Signals</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <span style="font-size:11px;font-weight:700;color:var(--bbg-amber);">🚨 DISPATCHED QUANT SIGNALS</span>
       <span id="alerts-count" class="mono" style="color:var(--purple);">0 Signals</span>
     </div>
-    <div class="cockpit-pane" style="margin-bottom:16px;overflow-x:auto;">
+    <div class="cockpit-pane" style="margin-bottom:8px;overflow-x:auto;height:auto;max-height:260px;">
       <table id="alerts-table">
         <thead>
           <tr>
@@ -714,83 +845,82 @@ export function renderDashboardHtml(): string {
             <th>Buyers</th>
             <th>HHI</th>
             <th>Stage Flags</th>
-            <th>Deep Research</th>
-            <th>1-Click Sniper</th>
+            <th>Inspect</th>
+            <th>Sniper Links</th>
           </tr>
         </thead>
         <tbody id="alerts-body">
-          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">Awaiting high-conviction signals...</td></tr>
+          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:10px;">Awaiting high-conviction signals...</td></tr>
         </tbody>
       </table>
     </div>
 
     <!-- Live Ingestion Feed Table -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--bbg-amber);">⚡ Live Solana Ingestion Stream</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+      <span style="font-size:11px;font-weight:700;color:var(--bbg-amber);">⚡ LIVE SOLANA INGESTION STREAM</span>
       <span class="mono" style="color:var(--text-muted);">Auto-refreshing 3s</span>
     </div>
-    <div class="cockpit-pane" style="overflow-x:auto;">
+    <div class="cockpit-pane" style="overflow-x:auto;height:auto;max-height:400px;">
       <table id="events-table">
         <thead>
           <tr>
             <th>ID</th>
             <th>Time</th>
-            <th>Token (Symbol / Name)</th>
-            <th>Creator Wallet</th>
+            <th>Token</th>
+            <th>Creator</th>
             <th>Metadata Host</th>
             <th>Socials</th>
-            <th>Forensic Verdict</th>
-            <th>Deep Research</th>
+            <th>Verdict</th>
+            <th>Inspect</th>
             <th>Live Links</th>
           </tr>
         </thead>
         <tbody id="events-body">
-          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">Connecting to Cloudflare Workers Edge stream...</td></tr>
+          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:10px;">Connecting to Cloudflare Workers Edge stream...</td></tr>
         </tbody>
       </table>
     </div>
   </div>
 
-  <!-- ========================================== -->
-  <!-- INSTITUTIONAL DEEP INSPECT MODAL           -->
-  <!-- ========================================== -->
+  <!-- ======================================================== -->
+  <!-- INSTITUTIONAL DEEP INSPECT MODAL                         -->
+  <!-- ======================================================== -->
   <div id="inspect-modal" class="modal-backdrop" onclick="closeInspectModal(event)">
     <div class="modal-window" onclick="event.stopPropagation()">
       <div class="modal-header">
-        <div style="display:flex;align-items:center;gap:12px;">
-          <div style="font-size:16px;font-weight:800;color:var(--bbg-amber);" id="m-token-title">Loading Token...</div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div style="font-size:14px;font-weight:800;color:var(--bbg-amber);" id="m-token-title">Loading Token...</div>
           <span id="m-token-badge" class="badge badge-purple">STAGE 1</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;">
           <button class="btn" onclick="copyMintAddress()" id="copy-mint-btn">📋 Copy Mint</button>
           <a id="m-solscan-token-link" href="#" target="_blank" class="btn">Solscan ↗</a>
-          <button class="btn" onclick="closeInspectModalDirect()" style="padding:3px 7px;font-size:12px;">✕</button>
+          <button class="btn" onclick="closeInspectModalDirect()" style="padding:2px 5px;">✕</button>
         </div>
       </div>
 
       <div class="modal-body" id="m-modal-body">
-        <div id="m-loading-state" style="text-align:center;padding:30px;color:var(--text-muted);">
-          <div class="pulse-dot" style="margin:0 auto 10px auto;width:12px;height:12px;"></div>
+        <div id="m-loading-state" style="text-align:center;padding:24px;color:var(--text-muted);">
+          <div class="pulse-dot" style="margin:0 auto 8px auto;width:10px;height:10px;"></div>
           Connecting to on-chain ledger, querying RugCheck contract audit & mapping Sybil clusters...
         </div>
 
-        <div id="m-content-state" style="display:none;flex-direction:column;gap:12px;">
-          <!-- Mint Address Monospace Bar -->
-          <div style="background:#070b0e;padding:6px 10px;border-radius:4px;border:1px solid #16212c;display:flex;justify-content:space-between;align-items:center;">
-            <span class="mono" style="font-size:11px;color:var(--accent);" id="m-mint-addr">--</span>
-            <span style="font-size:10px;color:var(--text-muted);" id="m-created-time">--</span>
+        <div id="m-content-state" style="display:none;flex-direction:column;gap:8px;">
+          <div style="background:#070a0e;padding:4px 8px;border-radius:3px;border:1px solid #141f2a;display:flex;justify-content:space-between;align-items:center;">
+            <span class="mono" style="font-size:10px;color:var(--accent);" id="m-mint-addr">--</span>
+            <span style="font-size:9px;color:var(--text-muted);" id="m-created-time">--</span>
           </div>
 
           <!-- Curve Hero -->
-          <div class="bento-card" style="background:#0b1016;border-color:#1c2937;">
-            <div style="display:flex;justify-content:space-between;align-items:baseline;">
-              <span class="bento-card-title">📈 Bonding Curve & Migration Progress</span>
+          <div class="bento-card">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:3px;">
+              <span style="font-size:10px;font-weight:700;color:var(--bbg-amber);">📈 BONDING CURVE & MIGRATION PROGRESS</span>
               <span class="mono" style="font-weight:700;color:var(--accent);" id="m-curve-text">0.0% to Raydium</span>
             </div>
             <div class="progress-bar-wrap">
               <div class="progress-bar-fill" id="m-curve-bar" style="width:0%;"></div>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:5px;">
+            <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);margin-top:3px;">
               <span id="m-net-sol-hero">0.00 SOL Raised</span>
               <span id="m-sol-to-grad">85.00 SOL remaining</span>
             </div>
@@ -798,12 +928,11 @@ export function renderDashboardHtml(): string {
 
           <!-- Bento Grid: Creator DNA + Financials + RugCheck -->
           <div class="bento-grid">
-            <!-- Card 1: Creator DNA -->
             <div class="bento-card">
-              <div class="bento-card-title">👤 Creator DNA & Deployment History</div>
-              <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;">
+              <div style="font-size:10px;font-weight:700;color:var(--bbg-amber);margin-bottom:4px;">👤 CREATOR DNA & HISTORY</div>
+              <div style="display:flex;flex-direction:column;gap:4px;font-size:10px;">
                 <div style="display:flex;justify-content:space-between;">
-                  <span style="color:var(--text-muted);">Creator Wallet:</span>
+                  <span style="color:var(--text-muted);">Creator:</span>
                   <a id="m-creator-link" href="#" target="_blank" class="mono">--</a>
                 </div>
                 <div style="display:flex;justify-content:space-between;">
@@ -819,16 +948,15 @@ export function renderDashboardHtml(): string {
                   <span id="m-rug-badge" class="badge badge-green">Clean Deployer</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;align-items:center;">
-                  <span style="color:var(--text-muted);">Discovered Socials:</span>
+                  <span style="color:var(--text-muted);">Socials:</span>
                   <div id="m-socials-box">--</div>
                 </div>
               </div>
             </div>
 
-            <!-- Card 2: Financials & Market Depth -->
             <div class="bento-card">
-              <div class="bento-card-title">💰 Capital Deployed & Depth</div>
-              <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;">
+              <div style="font-size:10px;font-weight:700;color:var(--bbg-amber);margin-bottom:4px;">💰 CAPITAL DEPLOYED & DEPTH</div>
+              <div style="display:flex;flex-direction:column;gap:4px;font-size:10px;">
                 <div style="display:flex;justify-content:space-between;">
                   <span style="color:var(--text-muted);">Net SOL Deployed:</span>
                   <span class="mono" style="font-weight:700;color:var(--green);" id="m-net-sol">--</span>
@@ -842,7 +970,7 @@ export function renderDashboardHtml(): string {
                   <span class="mono" id="m-gross-outflow">--</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;">
-                  <span style="color:var(--text-muted);">Estimated Market Cap:</span>
+                  <span style="color:var(--text-muted);">Estimated MCap:</span>
                   <span class="mono" style="font-weight:700;color:var(--yellow);" id="m-mcap">--</span>
                 </div>
                 <div style="display:flex;justify-content:space-between;">
@@ -852,10 +980,9 @@ export function renderDashboardHtml(): string {
               </div>
             </div>
 
-            <!-- Card 3: Security & RugCheck -->
             <div class="bento-card">
-              <div class="bento-card-title">🛡️ Contract Security (RugCheck)</div>
-              <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;">
+              <div style="font-size:10px;font-weight:700;color:var(--bbg-amber);margin-bottom:4px;">🛡️ CONTRACT SECURITY (RUGCHECK)</div>
+              <div style="display:flex;flex-direction:column;gap:4px;font-size:10px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                   <span style="color:var(--text-muted);">Audit Verdict:</span>
                   <span id="m-rugcheck-status" class="badge badge-green">✅ SAFE</span>
@@ -882,17 +1009,17 @@ export function renderDashboardHtml(): string {
 
           <!-- Top Investors Table -->
           <div class="bento-card">
-            <div class="bento-card-title">
-              <span>👥 Who Invested & Whale Allocations</span>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+              <span style="font-size:10px;font-weight:700;color:var(--bbg-amber);">👥 WHO INVESTED & WHALE ALLOCATIONS</span>
               <span id="m-whale-gauge" class="badge badge-green">Decentralized</span>
             </div>
             <div style="overflow-x:auto;">
-              <table style="font-size:11px;">
+              <table>
                 <thead>
                   <tr>
                     <th>#</th>
                     <th>Investor Wallet</th>
-                    <th>Net SOL Invested</th>
+                    <th>Net SOL</th>
                     <th>Gross Buy</th>
                     <th>Share %</th>
                     <th>Classification</th>
@@ -910,10 +1037,10 @@ export function renderDashboardHtml(): string {
 
       <!-- Action Dock: 1-Click Fast Sniper Bar -->
       <div class="modal-footer">
-        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);">
+        <div style="display:flex;align-items:center;gap:6px;font-size:9px;color:var(--text-muted);">
           <span>⚡ <strong>Ready to trade?</strong> Execution dock:</span>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
+        <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap;">
           <a id="m-btn-photon" href="#" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;">⚡ Photon</a>
           <a id="m-btn-bullx" href="#" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;">🎯 BullX</a>
           <a id="m-btn-gmgn" href="#" target="_blank" class="btn" style="background:#00d2ff;color:#000;font-weight:700;">🤖 GMGN</a>
@@ -986,53 +1113,33 @@ export function renderDashboardHtml(): string {
       } catch (_) {}
     }
 
-    function playWarningTone() {
-      if (audioMuted) return;
-      try {
-        initAudio();
-        if (!audioCtx) return;
-        const now = audioCtx.currentTime;
-        const osc = audioCtx.createOscillator();
-        const gain = audioCtx.createGain();
-        osc.type = "sawtooth";
-        osc.frequency.setValueAtTime(170, now);
-        osc.frequency.linearRampToValueAtTime(85, now + 0.25);
-        gain.gain.setValueAtTime(0.08, now);
-        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
-        osc.connect(gain);
-        gain.connect(audioCtx.destination);
-        osc.start(now);
-        osc.stop(now + 0.3);
-      } catch (_) {}
-    }
-
     // View Switcher (Bloomberg Cockpit vs Standard)
     function toggleLayout() {
       isStandardView = !isStandardView;
       document.body.classList.toggle("standard-view", isStandardView);
-      document.getElementById("view-toggle-btn").innerText = isStandardView ? "📋 Standard View" : "🖥️ Cockpit Mode";
+      document.getElementById("view-toggle-btn").innerText = isStandardView ? "📋 Standard" : "🖥️ Cockpit";
       localStorage.setItem("pumpradar_standard", isStandardView ? "1" : "0");
     }
 
     function updateClock() {
       const now = new Date();
-      document.getElementById("clock").innerText = now.toISOString().replace("T", " ").slice(0, 19) + " UTC";
+      document.getElementById("clock").innerText = now.toISOString().replace("T", " ").slice(11, 19) + " UTC";
     }
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Center Tab Switcher (Sybil vs TradingView vs HFT OBI vs Factors)
+    // Center Tab Switcher
     function switchCenterTab(tabKey) {
       currentCenterTab = tabKey;
-      ["sybil", "tv", "obi", "factors"].forEach(t => {
+      ["sybil", "tv", "obi", "factors", "whales"].forEach(t => {
         const btn = document.getElementById("tab-btn-" + t);
         const view = document.getElementById("view-tab-" + t);
         if (btn) btn.classList.toggle("active", t === tabKey);
-        if (view) view.style.display = t === tabKey ? "block" : "none";
+        if (view) view.style.display = t === tabKey ? "flex" : "none";
       });
 
       if (tabKey === "sybil" && activeTokenReport) {
-        drawSybilCanvas("sybil-canvas", activeTokenReport.sybil_intelligence.bubble_graph);
+        drawSybilCanvas("sybil-canvas", activeTokenReport.sybil_intelligence?.bubble_graph);
       } else if (tabKey === "tv" && activeTokenMint) {
         const frame = document.getElementById("c-tradingview-frame");
         if (!frame.src || !frame.src.includes(activeTokenMint)) {
@@ -1046,8 +1153,9 @@ export function renderDashboardHtml(): string {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
       const ctx = canvas.getContext("2d");
-      const width = canvas.width = canvas.parentElement.clientWidth || 360;
-      const height = canvas.height = 220;
+      const rect = canvas.getBoundingClientRect();
+      const width = canvas.width = Math.max(300, rect.width || canvas.parentElement.clientWidth || 360);
+      const height = canvas.height = Math.max(220, rect.height || canvas.parentElement.clientHeight || 240);
       const centerX = width / 2;
       const centerY = height / 2;
 
@@ -1055,10 +1163,11 @@ export function renderDashboardHtml(): string {
 
       // Radar rings
       ctx.lineWidth = 1;
-      [35, 65, 95].forEach(r => {
+      const maxR = Math.min(width, height) * 0.42;
+      [0.35, 0.65, 0.95].forEach(frac => {
         ctx.beginPath();
-        ctx.arc(centerX, centerY, r, 0, Math.PI * 2);
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.04)";
+        ctx.arc(centerX, centerY, maxR * frac, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
         ctx.stroke();
       });
 
@@ -1071,13 +1180,13 @@ export function renderDashboardHtml(): string {
 
       nodes.forEach((n, i) => {
         if (n.role === "CREATOR" || i === 0) {
-          posMap.set(n.id, { x: centerX, y: centerY, r: 16, color: n.color || "#f59e0b", label: n.short });
+          posMap.set(n.id, { x: centerX, y: centerY, r: 15, color: n.color || "#f59e0b", label: n.short });
         } else {
-          const radius = 68 + (i % 2 === 0 ? 14 : -10);
+          const radius = (maxR * 0.72) + (i % 2 === 0 ? 12 : -10);
           const angle = (i - 1) * angleStep;
           const x = centerX + Math.cos(angle) * radius;
           const y = centerY + Math.sin(angle) * radius;
-          const nodeR = Math.max(7, Math.min(14, 7 + (n.sol || 1) * 2));
+          const nodeR = Math.max(6, Math.min(13, 6 + (n.sol || 1) * 1.8));
           posMap.set(n.id, { x, y, r: nodeR, color: n.color || "#00d2ff", label: n.short });
         }
       });
@@ -1091,7 +1200,7 @@ export function renderDashboardHtml(): string {
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         if (l.type === "bundled_cluster") {
-          ctx.strokeStyle = "rgba(255, 51, 68, 0.65)";
+          ctx.strokeStyle = "rgba(255, 51, 68, 0.7)";
           ctx.setLineDash([3, 3]);
         } else {
           ctx.strokeStyle = "rgba(0, 255, 255, 0.25)";
@@ -1111,7 +1220,7 @@ export function renderDashboardHtml(): string {
         ctx.fillStyle = "#cbd5e1";
         ctx.font = "9px monospace";
         ctx.textAlign = "center";
-        ctx.fillText(pos.label, pos.x, pos.y + pos.r + 10);
+        ctx.fillText(pos.label, pos.x, pos.y + pos.r + 9);
       });
     }
 
@@ -1152,17 +1261,18 @@ export function renderDashboardHtml(): string {
               selectActiveToken(e.mint);
             }
             let badge = '';
-            if (e.is_serial_rugger) badge = '<span class="badge badge-red">RUGGER</span>';
+            if (e.is_serial_rugger) badge = '<span class="badge badge-red">RUG</span>';
             else if (e.has_alert) badge = '<span class="badge badge-purple">ALERT</span>';
             else if (e.twitter || e.telegram || e.website) badge = '<span class="badge badge-green">VERIFIED</span>';
 
             return \`<div class="firehose-item \${isActive ? 'active' : ''}" onclick="selectActiveToken('\${e.mint}')">
-              <div style="display:flex;flex-direction:column;gap:1px;">
-                <div style="font-weight:700;color:var(--text);font-size:11px;">\${escapeHtml(e.symbol || 'PUMP')} <span style="font-weight:400;color:var(--text-muted);font-size:10px;">\${escapeHtml((e.name || '').slice(0, 14))}</span></div>
-                <div class="mono" style="font-size:9px;color:var(--text-muted);">\${timeStr} · \${e.creator ? e.creator.slice(0, 4) + '...' + e.creator.slice(-4) : ''}</div>
+              <div class="firehose-row1">
+                <span style="font-weight:700;color:var(--text);font-size:11px;">\${escapeHtml(e.symbol || 'PUMP')}</span>
+                <span class="mono" style="font-size:9px;color:var(--text-muted);">\${timeStr} \${badge}</span>
               </div>
-              <div style="text-align:right;">
-                \${badge}
+              <div class="firehose-row2">
+                <span style="color:#94a3b8;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">\${escapeHtml(e.name || '')}</span>
+                <span class="mono">\${e.creator ? e.creator.slice(0, 4) + '...' + e.creator.slice(-4) : ''}</span>
               </div>
             </div>\`;
           }).join("");
@@ -1173,18 +1283,26 @@ export function renderDashboardHtml(): string {
         if (data.alerts && data.alerts.length > 0) {
           cAlertsContainer.innerHTML = data.alerts.map(a => {
             const timeStr = a.created_at ? new Date(a.created_at).toISOString().replace("T", " ").slice(11, 19) : "--:--:--";
-            return \`<div class="bento-card" style="margin-bottom:6px;cursor:pointer;" onclick="selectActiveToken('\${a.mint}')">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+            return \`<div class="signal-card" onclick="selectActiveToken('\${a.mint}')">
+              <div class="signal-header">
                 <strong style="color:var(--bbg-amber);font-size:11px;">$\${escapeHtml(a.symbol)}</strong>
-                <span class="badge badge-purple">\${Math.round(a.score)}/100</span>
+                <div>
+                  <span class="mono" style="font-size:8px;color:var(--text-muted);margin-right:3px;">\${timeStr}</span>
+                  <span class="badge badge-purple">\${Math.round(a.score)}/100</span>
+                </div>
               </div>
-              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);">
-                <span>\${Number(a.net_sol || 0).toFixed(2)} SOL Raised</span>
+              <div class="signal-stats">
+                <span>\${Number(a.net_sol || 0).toFixed(2)} SOL</span>
                 <span>\${a.unique_buyers || 0} Buyers</span>
+                <span>HHI: \${Number(a.buyer_hhi || 0).toFixed(2)}</span>
               </div>
-              <div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center;">
-                <span class="badge badge-green" style="font-size:8px;">\${escapeHtml(a.flags?.split(',')[0] || 'SIGNAL')}</span>
-                <button class="btn btn-inspect" style="padding:2px 5px;font-size:9px;" onclick="inspectToken('\${a.mint}');event.stopPropagation();">Inspect</button>
+              <div class="signal-actions">
+                <span class="badge badge-green" style="font-size:7px;">\${escapeHtml(a.flags?.split(',')[0] || 'SIGNAL')}</span>
+                <div style="display:flex;gap:3px;">
+                  <button class="btn btn-inspect" style="padding:1px 4px;font-size:8px;" onclick="inspectToken('\${a.mint}');event.stopPropagation();">Inspect</button>
+                  <a href="https://photon-sol.tinyastro.io/en/lp/\${a.mint}" target="_blank" class="btn" style="padding:1px 4px;font-size:8px;background:#f59e0b;color:#000;" onclick="event.stopPropagation();">⚡</a>
+                  <a href="https://bullx.io/terminal?chainId=1399811149&address=\${a.mint}" target="_blank" class="btn" style="padding:1px 4px;font-size:8px;background:#10b981;color:#000;" onclick="event.stopPropagation();">🎯</a>
+                </div>
               </div>
             </div>\`;
           }).join("");
@@ -1197,7 +1315,7 @@ export function renderDashboardHtml(): string {
             const timeStr = a.created_at ? new Date(a.created_at).toISOString().replace("T", " ").slice(11, 19) : "--:--:--";
             return \`<tr>
               <td class="mono">\${timeStr}</td>
-              <td><span class="clickable-token" onclick="inspectToken('\${a.mint}')"><strong>\${escapeHtml(a.symbol)}</strong></span></td>
+              <td><span style="color:var(--bbg-amber);font-weight:700;cursor:pointer;" onclick="inspectToken('\${a.mint}')">\${escapeHtml(a.symbol)}</span></td>
               <td><span class="badge badge-purple">\${Math.round(a.score)}/100</span></td>
               <td class="mono">\${Number(a.net_sol || 0).toFixed(2)} SOL</td>
               <td class="mono">\${a.unique_buyers || 0}</td>
@@ -1225,30 +1343,30 @@ export function renderDashboardHtml(): string {
             if (!socialsHtml) socialsHtml = '<span class="badge badge-muted">None</span>';
 
             let hostStr = 'unknown';
-            try { if (e.uri) hostStr = new URL(e.uri).hostname; } catch (_) { hostStr = (e.uri || '').slice(0, 20); }
+            try { if (e.uri) hostStr = new URL(e.uri).hostname; } catch (_) { hostStr = (e.uri || '').slice(0, 16); }
 
             let verdictBadge = '';
-            if (e.is_serial_rugger) verdictBadge = \`<span class="badge badge-red">❌ Serial Rugger</span>\`;
-            else if (e.has_alert) verdictBadge = '<span class="badge badge-purple">🚀 Alert Sent</span>';
-            else if (e.twitter || e.telegram || e.website) verdictBadge = '<span class="badge badge-green">✅ Verified Community</span>';
-            else verdictBadge = '<span class="badge badge-muted">⚪ Anonymous</span>';
+            if (e.is_serial_rugger) verdictBadge = \`<span class="badge badge-red">❌ Rugger</span>\`;
+            else if (e.has_alert) verdictBadge = '<span class="badge badge-purple">🚀 Alert</span>';
+            else if (e.twitter || e.telegram || e.website) verdictBadge = '<span class="badge badge-green">✅ Verified</span>';
+            else verdictBadge = '<span class="badge badge-muted">⚪ Anon</span>';
 
             return \`<tr>
               <td class="mono" style="color:var(--text-muted);">#\${e.id}</td>
               <td class="mono">\${timeStr}</td>
               <td>
-                <span class="clickable-token" onclick="inspectToken('\${e.mint}')"><strong>\${escapeHtml(e.symbol || 'PUMP')}</strong></span>
-                <span style="color:var(--text-muted);font-size:10px;">\${escapeHtml(e.name || '')}</span>
+                <span style="cursor:pointer;color:var(--text);font-weight:700;" onclick="inspectToken('\${e.mint}')">\${escapeHtml(e.symbol || 'PUMP')}</span>
+                <span style="color:var(--text-muted);font-size:9px;">\${escapeHtml(e.name || '')}</span>
               </td>
               <td><a class="mono" href="https://solscan.io/account/\${e.creator}" target="_blank">\${shortCreator}</a></td>
-              <td><span class="mono" style="font-size:10px;color:var(--text-muted);">\${escapeHtml(hostStr)}</span></td>
+              <td><span class="mono" style="font-size:9px;color:var(--text-muted);">\${escapeHtml(hostStr)}</span></td>
               <td>\${socialsHtml}</td>
               <td>\${verdictBadge}</td>
               <td><button class="btn btn-inspect" onclick="inspectToken('\${e.mint}')">🔬 Inspect</button></td>
               <td>
-                <a href="https://photon-sol.tinyastro.io/en/lp/\${e.mint}" target="_blank" style="color:#f59e0b;font-weight:700;">⚡Photon</a> ·
-                <a href="https://bullx.io/terminal?chainId=1399811149&address=\${e.mint}" target="_blank" style="color:#10b981;font-weight:700;">🎯BullX</a> ·
-                <a href="https://gmgn.ai/sol/token/\${e.mint}" target="_blank" style="color:#00d2ff;font-weight:700;">🤖GMGN</a>
+                <a href="https://photon-sol.tinyastro.io/en/lp/\${e.mint}" target="_blank" style="color:#f59e0b;font-weight:700;">⚡</a> ·
+                <a href="https://bullx.io/terminal?chainId=1399811149&address=\${e.mint}" target="_blank" style="color:#10b981;font-weight:700;">🎯</a> ·
+                <a href="https://gmgn.ai/sol/token/\${e.mint}" target="_blank" style="color:#00d2ff;font-weight:700;">🤖</a>
               </td>
             </tr>\`;
           }).join("");
@@ -1275,16 +1393,19 @@ export function renderDashboardHtml(): string {
         activeTokenReport = report;
 
         // Center Hero
-        document.getElementById("c-token-name").innerHTML = \`\${escapeHtml(report.name)} <span style="color:var(--bbg-amber);">($\${escapeHtml(report.symbol)})</span>\`;
-        document.getElementById("c-token-mint").innerText = report.mint;
+        document.getElementById("c-token-name").innerHTML = \`\${escapeHtml(report.name)} <span style="color:var(--bbg-amber);font-size:12px;">($\${escapeHtml(report.symbol)})</span>\`;
+        document.getElementById("c-token-mint").innerText = report.mint.slice(0, 6) + "..." + report.mint.slice(-6);
+        document.getElementById("c-token-mint").setAttribute("data-full-mint", report.mint);
+        
         const curvePct = Number(report.curve_progress_pct || 0);
         document.getElementById("c-curve-text").innerText = curvePct.toFixed(1) + "% to Raydium";
         document.getElementById("c-net-sol").innerText = report.net_sol_deployed.toFixed(2) + " SOL Raised (" + report.unique_investors + " Buyers)";
+        document.getElementById("c-mcap").innerText = report.estimated_mcap_usd ? "MCap: $" + Math.round(report.estimated_mcap_usd).toLocaleString() : "MCap: --";
         document.getElementById("c-curve-bar").style.width = Math.min(100, Math.max(2, curvePct)) + "%";
 
         // Jito Anti-MEV Tip
         const jitoBadge = document.getElementById("c-jito-tip");
-        jitoBadge.innerText = "Rec. Jito Tip: " + report.jito_execution.recommended_tip_sol + " SOL (" + report.jito_execution.mev_risk_level + " RISK)";
+        jitoBadge.innerText = "Jito: " + report.jito_execution.recommended_tip_sol + " SOL (" + report.jito_execution.mev_risk_level + ")";
         if (report.jito_execution.mev_risk_level === "HIGH") jitoBadge.className = "badge badge-red";
         else if (report.jito_execution.mev_risk_level === "MEDIUM") jitoBadge.className = "badge badge-amber";
         else jitoBadge.className = "badge badge-green";
@@ -1320,11 +1441,11 @@ export function renderDashboardHtml(): string {
         document.getElementById("obi-bid-bar").style.width = bidPct + "%";
         document.getElementById("obi-ask-bar").style.width = askPct + "%";
         document.getElementById("obi-ratio-text").innerText = "OBI Ratio: K = " + (obiK >= 0 ? "+" : "") + obiK.toFixed(3);
-        document.getElementById("obi-micro-text").innerText = "Pressure: " + (obiK > 0.3 ? "⚡ BULLISH ACCUMULATION" : obiK < -0.2 ? "⚠️ DISTRIBUTION DUMP" : "⚖️ BALANCED ORDER FLOW");
+        document.getElementById("obi-micro-text").innerText = "Pressure: " + (obiK > 0.3 ? "⚡ BULLISH ACCUMULATION" : obiK < -0.2 ? "⚠️ DISTRIBUTION DUMP" : "⚖️ BALANCED FLOW");
 
         const obiBadge = document.getElementById("obi-status-badge");
         if (obiK > 0.3) { obiBadge.className = "badge badge-green"; obiBadge.innerText = "BULLISH INFLOW"; }
-        else if (obiK < -0.2) { obiBadge.className = "badge badge-red"; obiBadge.innerText = "SELL DUMP WALL"; }
+        else if (obiK < -0.2) { obiBadge.className = "badge badge-red"; obiBadge.innerText = "SELL WALL"; }
         else { obiBadge.className = "badge badge-cyan"; obiBadge.innerText = "BALANCED FLOW"; }
 
         // Level-2 Ladder representation
@@ -1335,8 +1456,8 @@ export function renderDashboardHtml(): string {
             <span class="mono">\${buySol.toFixed(2)} SOL (100% Virtual LP)</span>
           </div>
           <div style="display:flex;justify-content:space-between;color:var(--text-muted);">
-            <span>MID SPREAD (Pump Virtual Curve)</span>
-            <span class="mono">~0.0003 SOL (0.3% Slippage Floor)</span>
+            <span>MID SPREAD (Virtual Curve Floor)</span>
+            <span class="mono">~0.0003 SOL (0.3% Slippage)</span>
           </div>
           <div style="display:flex;justify-content:space-between;color:\${sellSol > 0 ? 'var(--red)' : 'var(--text-muted)'};">
             <span>ASK WALL (Total Realized Sells)</span>
@@ -1349,7 +1470,23 @@ export function renderDashboardHtml(): string {
         document.getElementById("f-ofi").innerText = (bidPct).toFixed(0) + "% Buy Bias";
         document.getElementById("f-vpin").innerText = ((report.top5_share_pct || 0) * 0.8).toFixed(0) + "% Toxicity";
         document.getElementById("f-entropy").innerText = ((1 - (report.hhi_score || 0)) * 4).toFixed(2) + " bits";
-        document.getElementById("f-sri").innerText = report.creator_history.is_serial_rugger ? "❌ 1.00 (Serial Rugger)" : "✅ 0.00 (Clean)";
+        document.getElementById("f-sri").innerText = report.creator_history.is_serial_rugger ? "❌ 1.00 (Rugger)" : "✅ 0.00 (Clean)";
+
+        // Tab 5: Whales Book Table
+        const whalesBody = document.getElementById("c-whales-body");
+        if (report.investors && report.investors.length > 0) {
+          whalesBody.innerHTML = report.investors.map(inv => \`<tr>
+            <td class="mono" style="color:var(--text-muted);">#\${inv.rank}</td>
+            <td><a class="mono" href="\${inv.solscan_url}" target="_blank">\${inv.short_wallet} ↗</a></td>
+            <td class="mono" style="font-weight:700;color:var(--text);">\${inv.net_sol.toFixed(2)} SOL</td>
+            <td class="mono" style="color:var(--text-muted);">\${inv.gross_buy_sol.toFixed(2)} SOL</td>
+            <td class="mono">\${inv.pct_share.toFixed(1)}%</td>
+            <td><span class="badge \${inv.tag_class}">\${escapeHtml(inv.tag)}</span></td>
+            <td class="mono" style="color:var(--text-muted);">\${inv.trades_count}</td>
+          </tr>\`).join("");
+        } else {
+          whalesBody.innerHTML = \`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:8px;">Early launch state: trades syncing...</td></tr>\`;
+        }
 
       } catch (err) {
         console.error("Select token error:", err);
@@ -1360,6 +1497,17 @@ export function renderDashboardHtml(): string {
       if (activeTokenMint) {
         inspectToken(activeTokenMint);
       }
+    }
+
+    function copyActiveMint() {
+      const fullMint = document.getElementById("c-token-mint").getAttribute("data-full-mint") || activeTokenMint;
+      if (!fullMint) return;
+      navigator.clipboard.writeText(fullMint).then(() => {
+        const el = document.getElementById("c-token-mint");
+        const orig = el.innerText;
+        el.innerText = "COPIED!";
+        setTimeout(() => { el.innerText = orig; }, 1500);
+      });
     }
 
     // Modal Deep Inspector Controller
@@ -1531,6 +1679,8 @@ export function renderDashboardHtml(): string {
         switchCenterTab("obi");
       } else if (e.key === "4") {
         switchCenterTab("factors");
+      } else if (e.key === "5") {
+        switchCenterTab("whales");
       }
     });
 
@@ -1547,6 +1697,13 @@ export function renderDashboardHtml(): string {
     window.addEventListener("click", () => {
       initAudio();
     }, { once: true });
+
+    // Handle Window Resize to keep Arkham Canvas crisp & centered
+    window.addEventListener("resize", () => {
+      if (currentCenterTab === "sybil" && activeTokenReport) {
+        drawSybilCanvas("sybil-canvas", activeTokenReport.sybil_intelligence?.bubble_graph);
+      }
+    });
 
     function escapeHtml(str) {
       if (!str) return "";
