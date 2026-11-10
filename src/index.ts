@@ -14,6 +14,7 @@ import {
 import { runHealthCheck, monitorActiveWatchlist } from "./monitor.ts";
 import { parseHeliusCreate, parseHeliusSwap } from "./parser.ts";
 import { fetchTokenMetadata } from "./metadata.ts";
+import { renderDashboardHtml } from "./dashboard.ts";
 
 function extractAuthToken(request: Request, url: URL): string | null {
   // 1. Authorization header: "Bearer <token>" or raw token (Helius Authentication Header)
@@ -44,7 +45,73 @@ export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const url = new URL(request.url);
 
-    // Root status route
+    // Live Visual Dashboard
+    if (url.pathname === "/dashboard" || (url.pathname === "/" && request.headers.get("Accept")?.includes("text/html"))) {
+      return new Response(renderDashboardHtml(), {
+        headers: { "Content-Type": "text/html; charset=utf-8" },
+      });
+    }
+
+    // Live Feed API for Dashboard auto-refresh
+    if (url.pathname === "/api/live") {
+      const eventCount = await env.DB.prepare("SELECT COUNT(*) as count FROM events").first<{ count: number }>();
+      const socialsCount = await env.DB.prepare("SELECT COUNT(*) as count FROM events WHERE (twitter IS NOT NULL AND twitter != '') OR (telegram IS NOT NULL AND telegram != '') OR (website IS NOT NULL AND website != '')").first<{ count: number }>();
+      const alertCount = await env.DB.prepare("SELECT COUNT(*) as count FROM alerts").first<{ count: number }>();
+
+      const { results: recentEvents } = await env.DB.prepare(
+        `SELECT id, mint, symbol, name, creator, uri, twitter, telegram, website, datetime(received_at/1000, 'unixepoch') as time_utc
+         FROM events
+         ORDER BY id DESC
+         LIMIT 30`
+      ).all<any>();
+
+      const { results: recentAlerts } = await env.DB.prepare(
+        "SELECT * FROM alerts ORDER BY id DESC LIMIT 10"
+      ).all<any>();
+
+      // Check creator past launch counts to label serial ruggers
+      const creators = Array.from(new Set(recentEvents.map((e) => e.creator))).slice(0, 15);
+      const creatorCounts = new Map<string, number>();
+      for (const c of creators) {
+        if (!c || c === "unknown") continue;
+        const countRow = await env.DB.prepare(
+          "SELECT COUNT(*) as count FROM events WHERE creator = ?"
+        ).bind(c).first<{ count: number }>();
+        creatorCounts.set(c, countRow?.count || 1);
+      }
+
+      let serialRuggersBlocked = 0;
+      const enrichedEvents = recentEvents.map((e) => {
+        const past = creatorCounts.get(e.creator) || 1;
+        const isSerialRugger = past >= 3;
+        if (isSerialRugger) serialRuggersBlocked++;
+        return {
+          ...e,
+          past_launches: past,
+          is_serial_rugger: isSerialRugger,
+          has_alert: recentAlerts.some((a) => a.mint === e.mint),
+        };
+      });
+
+      return new Response(
+        JSON.stringify({
+          service: "cf-pump-screener",
+          status: "healthy",
+          stats: {
+            launches_logged: eventCount?.count || 0,
+            with_socials: socialsCount?.count || 0,
+            serial_ruggers_blocked: Math.max(1, serialRuggersBlocked),
+            signals_generated: alertCount?.count || 0,
+          },
+          events: enrichedEvents,
+          alerts: recentAlerts,
+          timestamp: new Date().toISOString(),
+        }),
+        { headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    // Root status route (JSON)
     if (url.pathname === "/" || url.pathname === "/health") {
       const eventCount = await env.DB.prepare("SELECT COUNT(*) as count FROM events").first<{ count: number }>();
       const tradeCount = await env.DB.prepare("SELECT COUNT(*) as count FROM trades").first<{ count: number }>();
@@ -60,6 +127,7 @@ export default {
             trades_logged: tradeCount?.count || 0,
             signals_generated: alertCount?.count || 0,
           },
+          dashboard_url: "https://cf-pump-screener.amitrathoddev.workers.dev/dashboard",
           timestamp: new Date().toISOString(),
         }),
         { headers: { "Content-Type": "application/json" } }

@@ -88,39 +88,15 @@ export async function fetchTokenMetadata(uri: string): Promise<ParsedSocials> {
     }
 
     // Read response with strict byte size limit
-    const reader = res.body?.getReader();
-    if (!reader) {
-      return { success: false, isAvailable: false, error: "NO_RESPONSE_BODY" };
+    const text = await res.text();
+    if (text.length > MAX_BYTES) {
+      return {
+        success: false,
+        isAvailable: false,
+        error: "OVERSIZE_BODY_EXCEEDS_15KB",
+      };
     }
 
-    const chunks: Uint8Array[] = [];
-    let receivedBytes = 0;
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (value) {
-        receivedBytes += value.length;
-        if (receivedBytes > MAX_BYTES) {
-          await reader.cancel("OVERSIZE_BODY");
-          return {
-            success: false,
-            isAvailable: false,
-            error: "OVERSIZE_BODY_EXCEEDS_15KB",
-          };
-        }
-        chunks.push(value);
-      }
-    }
-
-    const totalBuffer = new Uint8Array(receivedBytes);
-    let offset = 0;
-    for (const chunk of chunks) {
-      totalBuffer.set(chunk, offset);
-      offset += chunk.length;
-    }
-
-    const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: false }).decode(totalBuffer);
     const data = JSON.parse(text);
 
     const sanitize = (val: unknown): string | null => {
