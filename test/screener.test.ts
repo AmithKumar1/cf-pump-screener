@@ -25,6 +25,7 @@ import {
   KNOWN_ALPHA_WALLETS,
 } from "../src/screener.ts";
 import { formatResearchCard, formatVerifiedLaunchCard } from "../src/telegram.ts";
+import { getDetailedTokenInspection } from "../src/inspect.ts";
 import type { TradePoint, LaunchMetadata } from "../src/types.ts";
 
 describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", () => {
@@ -564,6 +565,7 @@ describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", ()
     assert.ok(card.includes("Photon: https://photon-sol.tinyastro.io/en/lp/M1"));
     assert.ok(card.includes("BullX: https://bullx.io/terminal?chainId=1399811149&address=M1"));
     assert.ok(card.includes("GMGN: https://gmgn.ai/sol/token/M1"));
+    assert.ok(card.includes("Solscan: https://solscan.io/token/M1"));
   });
 
   it("Stage 1 Pipeline: formatVerifiedLaunchCard correctly structures early creation intelligence", () => {
@@ -593,5 +595,67 @@ describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", ()
     assert.ok(card.includes("Photon: https://photon-sol.tinyastro.io/en/lp/5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump"));
     assert.ok(card.includes("BullX: https://bullx.io/terminal?chainId=1399811149&address=5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump"));
     assert.ok(card.includes("GMGN: https://gmgn.ai/sol/token/5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump"));
+    assert.ok(card.includes("Solscan: https://solscan.io/token/5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump"));
+    assert.ok(card.includes("https://solscan.io/account/9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin"));
+  });
+
+  it("Deep Inspector: getDetailedTokenInspection compiles comprehensive institutional report", async () => {
+    const mockEnv = {
+      DB: {
+        prepare: (query: string) => ({
+          bind: (..._args: any[]) => ({
+            first: async () => {
+              if (query.includes("FROM events")) {
+                return {
+                  id: 1,
+                  mint: "MINT123",
+                  symbol: "ALPHA",
+                  name: "Alpha Coin",
+                  creator: "CREATOR123",
+                  bonding_curve: "CURVE123",
+                  uri: "https://meta.example.com",
+                  twitter: "https://x.com/alpha",
+                  created_at: "2026-11-10 05:00:00",
+                };
+              }
+              if (query.includes("COUNT(DISTINCT trader)")) {
+                return {
+                  unique_investors: 12,
+                  gross_buy_sol: 15.5,
+                  gross_sell_sol: 1.2,
+                  net_sol: 14.3,
+                  total_trades: 18,
+                };
+              }
+              return null;
+            },
+            all: async () => {
+              if (query.includes("GROUP BY trader")) {
+                return {
+                  results: [
+                    { trader: "CREATOR123", buy_sol: 2.5, sell_sol: 0, net_sol: 2.5, net_tokens: 20000000, trades_count: 1 },
+                    { trader: "WHALE456", buy_sol: 5.0, sell_sol: 0, net_sol: 5.0, net_tokens: 40000000, trades_count: 2 },
+                  ],
+                };
+              }
+              return { results: [] };
+            },
+          }),
+        }),
+      } as any,
+    };
+
+    const report = await getDetailedTokenInspection("MINT123", mockEnv);
+    assert.strictEqual(report.mint, "MINT123");
+    assert.strictEqual(report.symbol, "ALPHA");
+    assert.strictEqual(report.creator, "CREATOR123");
+    assert.strictEqual(report.net_sol_deployed, 14.3);
+    assert.strictEqual(report.unique_investors, 12);
+    assert.strictEqual(report.investors.length, 2);
+    assert.strictEqual(report.investors[0].tag, "👨‍💻 Dev Deployer");
+    assert.ok(report.sniper_links.photon.includes("MINT123"));
+    assert.ok(report.sniper_links.bullx.includes("MINT123"));
+    assert.ok(report.sniper_links.gmgn.includes("MINT123"));
+    assert.ok(report.sniper_links.solscan_token.includes("MINT123"));
   });
 });

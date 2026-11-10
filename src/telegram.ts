@@ -81,7 +81,7 @@ export function formatResearchCard(
     `Score: ${score.toFixed(0)}/100 | Dev: ${devStatus}`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     `📍 Mint: ${mint}`,
-    `👤 Dev: ${creator.slice(0, 10)}...`,
+    `👤 Dev: ${creator.slice(0, 8)}...${creator.slice(-4)} (https://solscan.io/account/${creator})`,
     ``,
     `📊 On-Chain Quant Metrics:`,
     `  • Net Capital Raised: ${netSol.toFixed(2)} SOL (${curveProgress.toFixed(1)}% to Raydium)`,
@@ -115,6 +115,7 @@ export function formatResearchCard(
     `  • GMGN: https://gmgn.ai/sol/token/${mint}`,
     `  • DexScreener: https://dexscreener.com/solana/${mint}`,
     `  • Pump.fun: https://pump.fun/coin/${mint}`,
+    `  • Solscan: https://solscan.io/token/${mint}`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
   ].join("\n");
 }
@@ -159,7 +160,7 @@ export function formatVerifiedLaunchCard(
     `Stage: STAGE 1 [VERIFIED CREATION] | Score: ${score.toFixed(0)}/100`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
     `📍 Mint: ${mint}`,
-    `👤 Creator: ${creator.slice(0, 8)}...${creator.slice(-4)}`,
+    `👤 Creator: ${creator.slice(0, 8)}...${creator.slice(-4)} (https://solscan.io/account/${creator})`,
     ``,
     `🌐 Verified Community Links:`,
     `  ${socialsStr}`,
@@ -176,6 +177,7 @@ export function formatVerifiedLaunchCard(
     `  • GMGN: https://gmgn.ai/sol/token/${mint}`,
     `  • DexScreener: https://dexscreener.com/solana/${mint}`,
     `  • Pump.fun: https://pump.fun/coin/${mint}`,
+    `  • Solscan: https://solscan.io/token/${mint}`,
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
   ].join("\n");
 }

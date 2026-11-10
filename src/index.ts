@@ -16,6 +16,7 @@ import { parseHeliusCreate, parseHeliusSwap } from "./parser.ts";
 import { fetchTokenMetadata } from "./metadata.ts";
 import { renderDashboardHtml } from "./dashboard.ts";
 import { fetchRugCheck } from "./security.ts";
+import { getDetailedTokenInspection } from "./inspect.ts";
 
 function extractAuthToken(request: Request, url: URL): string | null {
   // 1. Authorization header: "Bearer <token>" or raw token (Helius Authentication Header)
@@ -86,6 +87,32 @@ export default {
       return new Response(renderDashboardHtml(), {
         headers: { "Content-Type": "text/html; charset=utf-8" },
       });
+    }
+
+    // Detailed Token & Whale Inspector API
+    if (url.pathname === "/api/inspect") {
+      const mint = url.searchParams.get("mint");
+      if (!mint) {
+        return new Response(JSON.stringify({ error: "Missing mint parameter" }), {
+          status: 400,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
+      try {
+        const report = await getDetailedTokenInspection(mint, env);
+        return new Response(JSON.stringify(report), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=5",
+          },
+        });
+      } catch (err: any) {
+        return new Response(
+          JSON.stringify({ error: "Inspection failed", message: err?.message || String(err) }),
+          { status: 500, headers: { "Content-Type": "application/json" } }
+        );
+      }
     }
 
     // Live Feed API for Dashboard auto-refresh (Zero-D1 In-Memory Edge Cache)

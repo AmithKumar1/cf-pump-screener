@@ -1,7 +1,7 @@
 /**
  * Institutional Live Radar & Forensics Dashboard for Cloudflare Workers edge.
  * Provides a real-time terminal UI directly in the browser to inspect incoming tokens,
- * metadata URIs, verified socials, and forensic defense decisions.
+ * whale rosters, money deployed, metadata URIs, and 1-click execution terminals.
  */
 
 export function renderDashboardHtml(): string {
@@ -13,11 +13,13 @@ export function renderDashboardHtml(): string {
   <title>PumpRadar — Live Edge Forensics & Screener</title>
   <style>
     :root {
-      --bg: #090d10;
-      --card-bg: #10161b;
-      --border: #1b242c;
+      --bg: #070a0d;
+      --card-bg: #0e141a;
+      --card-hover: #121a22;
+      --border: #1a2530;
+      --border-focus: #00d2ff;
       --text: #e2e8f0;
-      --text-muted: #738496;
+      --text-muted: #64748b;
       --accent: #00d2ff;
       --green: #10b981;
       --red: #ef4444;
@@ -131,7 +133,7 @@ export function renderDashboardHtml(): string {
       font-size: 12px;
     }
     th {
-      background: #0d1216;
+      background: #0b0f13;
       color: var(--text-muted);
       font-weight: 600;
       padding: 10px 14px;
@@ -176,9 +178,9 @@ export function renderDashboardHtml(): string {
     }
     .social-link:hover { background: rgba(0, 210, 255, 0.2); text-decoration: none; }
 
-    /* Button */
+    /* Buttons */
     .btn {
-      background: #19222a;
+      background: #151d24;
       border: 1px solid var(--border);
       color: var(--text);
       padding: 5px 12px;
@@ -186,8 +188,149 @@ export function renderDashboardHtml(): string {
       cursor: pointer;
       font-size: 11px;
       font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      transition: all 0.15s ease;
     }
-    .btn:hover { background: #222d37; }
+    .btn:hover { background: #1e2832; border-color: #2d3d4d; }
+    .btn-inspect {
+      background: rgba(0, 210, 255, 0.12);
+      border: 1px solid rgba(0, 210, 255, 0.4);
+      color: var(--accent);
+      font-weight: 700;
+    }
+    .btn-inspect:hover {
+      background: rgba(0, 210, 255, 0.25);
+      border-color: var(--accent);
+    }
+    .clickable-token {
+      cursor: pointer;
+      color: #fff;
+      font-weight: 700;
+      border-bottom: 1px dashed rgba(255,255,255,0.3);
+    }
+    .clickable-token:hover {
+      color: var(--accent);
+      border-bottom-color: var(--accent);
+    }
+
+    /* Modal Styles */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(3, 6, 9, 0.85);
+      backdrop-filter: blur(8px);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal-window {
+      background: #0b1015;
+      border: 1px solid #1e2b37;
+      border-radius: 12px;
+      width: 100%;
+      max-width: 960px;
+      max-height: 92vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      animation: modalFadeIn 0.2s ease-out;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.97); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .modal-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #0e141a;
+      border-top-left-radius: 12px;
+      border-top-right-radius: 12px;
+    }
+    .modal-body {
+      padding: 20px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .modal-footer {
+      padding: 14px 20px;
+      border-top: 1px solid var(--border);
+      background: #0e141a;
+      border-bottom-left-radius: 12px;
+      border-bottom-right-radius: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    /* Bento Grid inside Modal */
+    .bento-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+    .bento-card {
+      background: #11171f;
+      border: 1px solid #1a2530;
+      border-radius: 8px;
+      padding: 14px;
+    }
+    .bento-card-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* Neon Progress Bar */
+    .progress-bar-wrap {
+      background: #18222b;
+      border-radius: 6px;
+      height: 10px;
+      overflow: hidden;
+      margin-top: 6px;
+      border: 1px solid #23313e;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #10b981, #00d2ff);
+      box-shadow: 0 0 10px rgba(0, 210, 255, 0.5);
+      transition: width 0.4s ease;
+    }
+
+    /* Mini Table inside Modal */
+    .mini-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 11px;
+    }
+    .mini-table th {
+      padding: 6px 8px;
+      background: #0b0f14;
+      font-weight: 600;
+      color: var(--text-muted);
+      border-bottom: 1px solid #1a2530;
+    }
+    .mini-table td {
+      padding: 6px 8px;
+      border-bottom: 1px solid #161f28;
+    }
   </style>
 </head>
 <body>
@@ -244,11 +387,12 @@ export function renderDashboardHtml(): string {
           <th>Buyers</th>
           <th>HHI</th>
           <th>Stage Flags</th>
-          <th>Inspect</th>
+          <th>Deep Research</th>
+          <th>1-Click Sniper</th>
         </tr>
       </thead>
       <tbody id="alerts-body">
-        <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:20px;">Awaiting high-conviction breakout signals...</td></tr>
+        <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">Awaiting high-conviction breakout signals...</td></tr>
       </tbody>
     </table>
   </div>
@@ -269,17 +413,191 @@ export function renderDashboardHtml(): string {
           <th>Metadata Host (URI)</th>
           <th>Discovered Socials</th>
           <th>Forensic Verdict</th>
+          <th>Deep Research</th>
           <th>Live Links</th>
         </tr>
       </thead>
       <tbody id="events-body">
-        <tr><td colspan="8" style="text-align:center;color:var(--text-muted);padding:24px;">Connecting to Cloudflare Workers Edge stream...</td></tr>
+        <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">Connecting to Cloudflare Workers Edge stream...</td></tr>
       </tbody>
     </table>
   </div>
 
+  <!-- Institutional Token & Whales Deep Inspector Modal -->
+  <div id="inspect-modal" class="modal-backdrop" onclick="closeInspectModal(event)">
+    <div class="modal-window" onclick="event.stopPropagation()">
+      <div class="modal-header">
+        <div style="display:flex;align-items:center;gap:12px;">
+          <div style="font-size:18px;font-weight:700;" id="m-token-title">Loading Token...</div>
+          <span id="m-token-badge" class="badge badge-purple">STAGE 1</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <button class="btn" onclick="copyMintAddress()" id="copy-mint-btn">📋 Copy Mint</button>
+          <a id="m-solscan-token-link" href="#" target="_blank" class="btn">Solscan ↗</a>
+          <button class="btn" onclick="closeInspectModalDirect()" style="padding:5px 8px;font-size:14px;">✕</button>
+        </div>
+      </div>
+
+      <div class="modal-body" id="m-modal-body">
+        <div id="m-loading-state" style="text-align:center;padding:40px;color:var(--text-muted);">
+          <div class="pulse-dot" style="margin:0 auto 12px auto;width:14px;height:14px;"></div>
+          Connecting to on-chain ledger, querying RugCheck security audit & mapping whale distribution...
+        </div>
+
+        <div id="m-content-state" style="display:none;flex-direction:column;gap:16px;">
+          <!-- Mint Address Monospace Bar -->
+          <div style="background:#090d11;padding:8px 12px;border-radius:6px;border:1px solid #1a2530;display:flex;justify-content:space-between;align-items:center;">
+            <span class="mono" style="font-size:12px;color:var(--accent);" id="m-mint-addr">--</span>
+            <span style="font-size:11px;color:var(--text-muted);" id="m-created-time">--</span>
+          </div>
+
+          <!-- Bonding Curve Progress Hero -->
+          <div class="bento-card" style="background:#0e151d;border-color:#1e2d3b;">
+            <div style="display:flex;justify-content:space-between;align-items:baseline;">
+              <span class="bento-card-title">📈 Bonding Curve & Graduation Progress</span>
+              <span class="mono" style="font-weight:700;color:var(--accent);" id="m-curve-text">0.0% to Raydium</span>
+            </div>
+            <div class="progress-bar-wrap">
+              <div class="progress-bar-fill" id="m-curve-bar" style="width:0%;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px;">
+              <span id="m-net-sol-hero">0.00 SOL Raised</span>
+              <span id="m-sol-to-grad">85.00 SOL needed to migrate</span>
+            </div>
+          </div>
+
+          <!-- Bento Grid Row: Creator DNA + Financials -->
+          <div class="bento-grid">
+            <!-- Card 1: Creator DNA -->
+            <div class="bento-card">
+              <div class="bento-card-title">👤 Creator DNA & Deployment History</div>
+              <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Creator Wallet:</span>
+                  <a id="m-creator-link" href="#" target="_blank" class="mono">--</a>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Dev Initial Buy:</span>
+                  <span class="mono" style="font-weight:700;" id="m-dev-buy">0.00 SOL</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Historical Launches:</span>
+                  <span class="mono" id="m-past-launches">1 token</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="color:var(--text-muted);">Serial Rug Risk:</span>
+                  <span id="m-rug-badge" class="badge badge-green">Clean Deployer</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="color:var(--text-muted);">Discovered Socials:</span>
+                  <div id="m-socials-box">--</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 2: Financials & Market Depth -->
+            <div class="bento-card">
+              <div class="bento-card-title">💰 Capital Deployed & Market Depth</div>
+              <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Net SOL Deployed:</span>
+                  <span class="mono" style="font-weight:700;color:var(--green);" id="m-net-sol">--</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Gross Buy Inflow:</span>
+                  <span class="mono" id="m-gross-inflow">--</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Sell Outflow:</span>
+                  <span class="mono" id="m-gross-outflow">--</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Estimated Market Cap:</span>
+                  <span class="mono" style="font-weight:700;color:var(--yellow);" id="m-mcap">--</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Total Ingestion Trades:</span>
+                  <span class="mono" id="m-trades-count">--</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Card 3: Security & RugCheck -->
+            <div class="bento-card">
+              <div class="bento-card-title">🛡️ Contract Security (RugCheck Audit)</div>
+              <div style="display:flex;flex-direction:column;gap:8px;font-size:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                  <span style="color:var(--text-muted);">Audit Verdict:</span>
+                  <span id="m-rugcheck-status" class="badge badge-green">✅ SAFE</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Danger Score:</span>
+                  <span class="mono" id="m-danger-score">0 / 1000</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Mint Authority:</span>
+                  <span style="color:var(--green);font-weight:600;">✅ Revoked</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">Freeze Authority:</span>
+                  <span style="color:var(--green);font-weight:600;">✅ Revoked</span>
+                </div>
+                <div style="display:flex;justify-content:space-between;">
+                  <span style="color:var(--text-muted);">LP Protection:</span>
+                  <span style="color:var(--green);font-weight:600;">100% Locked on Curve</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Top Investors & Whales Roster Table -->
+          <div class="bento-card">
+            <div class="bento-card-title">
+              <span>👥 Who Invested & Whale Roster (Top Allocations)</span>
+              <span id="m-whale-gauge" class="badge badge-green">Decentralized</span>
+            </div>
+            <div style="overflow-x:auto;">
+              <table class="mini-table">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Investor Wallet</th>
+                    <th>Net SOL Invested</th>
+                    <th>Gross Buy</th>
+                    <th>Share of Pool</th>
+                    <th>Entity Classification</th>
+                    <th>Trades</th>
+                  </tr>
+                </thead>
+                <tbody id="m-investors-body">
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:14px;">No on-chain trade data recorded yet.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Dock: 1-Click Fast Sniper Execution Bar -->
+      <div class="modal-footer">
+        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
+          <span>⚡ <strong>Ready to trade?</strong> Zero-lag execution:</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;" id="m-sniper-actions">
+          <a id="btn-photon" href="#" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;">⚡ Trade on Photon</a>
+          <a id="btn-bullx" href="#" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;">🎯 Trade on BullX</a>
+          <a id="btn-gmgn" href="#" target="_blank" class="btn" style="background:#00d2ff;color:#000;font-weight:700;">🤖 Trade on GMGN</a>
+          <a id="btn-dexs" href="#" target="_blank" class="btn">DexScreener ↗</a>
+          <a id="btn-pump" href="#" target="_blank" class="btn">Pump.fun ↗</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script>
     let isPaused = false;
+    let currentInspectedMint = "";
+
     function togglePause() {
       isPaused = !isPaused;
       document.getElementById("pause-btn").innerText = isPaused ? "Resume Feed" : "Pause Feed";
@@ -314,18 +632,19 @@ export function renderDashboardHtml(): string {
             const timeStr = a.created_at ? new Date(a.created_at).toISOString().replace("T", " ").slice(11, 19) : "--:--:--";
             return \`<tr>
               <td class="mono">\${timeStr}</td>
-              <td><strong>\${escapeHtml(a.symbol)}</strong></td>
+              <td><span class="clickable-token" onclick="inspectToken('\${a.mint}')"><strong>\${escapeHtml(a.symbol)}</strong></span></td>
               <td><span class="badge badge-purple">\${Math.round(a.score)}/100</span></td>
               <td class="mono">\${Number(a.net_sol || 0).toFixed(2)} SOL</td>
               <td class="mono">\${a.unique_buyers || 0}</td>
               <td class="mono">\${Number(a.buyer_hhi || 0).toFixed(3)}</td>
               <td><span class="badge badge-green">\${escapeHtml(a.flags || 'SIGNAL')}</span></td>
               <td>
+                <button class="btn btn-inspect" onclick="inspectToken('\${a.mint}')">🔬 Inspect</button>
+              </td>
+              <td>
                 <a href="https://photon-sol.tinyastro.io/en/lp/\${a.mint}" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;padding:3px 8px;margin-right:4px;">⚡ Photon</a>
                 <a href="https://bullx.io/terminal?chainId=1399811149&address=\${a.mint}" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;padding:3px 8px;margin-right:4px;">🎯 BullX</a>
                 <a href="https://gmgn.ai/sol/token/\${a.mint}" target="_blank" class="btn" style="background:#00d2ff;color:#000;font-weight:700;padding:3px 8px;margin-right:4px;">🤖 GMGN</a>
-                <a href="https://dexscreener.com/solana/\${a.mint}" target="_blank" class="btn" style="padding:3px 8px;margin-right:4px;">DexS ↗</a>
-                <a href="https://pump.fun/coin/\${a.mint}" target="_blank" class="btn" style="padding:3px 8px;">Pump ↗</a>
               </td>
             </tr>\`;
           }).join("");
@@ -366,11 +685,17 @@ export function renderDashboardHtml(): string {
             return \`<tr>
               <td class="mono" style="color:var(--text-muted);">#\${e.id}</td>
               <td class="mono">\${timeStr}</td>
-              <td><strong>\${escapeHtml(e.symbol || 'PUMP')}</strong> <span style="color:var(--text-muted);font-size:11px;">\${escapeHtml(e.name || '')}</span></td>
+              <td>
+                <span class="clickable-token" onclick="inspectToken('\${e.mint}')"><strong>\${escapeHtml(e.symbol || 'PUMP')}</strong></span>
+                <span style="color:var(--text-muted);font-size:11px;">\${escapeHtml(e.name || '')}</span>
+              </td>
               <td><a class="mono" href="https://solscan.io/account/\${e.creator}" target="_blank">\${shortCreator}</a></td>
               <td><span class="mono" style="font-size:11px;color:var(--text-muted);">\${escapeHtml(hostStr)}</span></td>
               <td>\${socialsHtml}</td>
               <td>\${verdictBadge}</td>
+              <td>
+                <button class="btn btn-inspect" onclick="inspectToken('\${e.mint}')">🔬 Inspect</button>
+              </td>
               <td>
                 <a href="https://photon-sol.tinyastro.io/en/lp/\${e.mint}" target="_blank" style="color:#f59e0b;font-weight:700;">⚡Photon</a> ·
                 <a href="https://bullx.io/terminal?chainId=1399811149&address=\${e.mint}" target="_blank" style="color:#10b981;font-weight:700;">🎯BullX</a> ·
@@ -385,6 +710,154 @@ export function renderDashboardHtml(): string {
       } catch (err) {
         console.error("Dashboard poll failed:", err);
       }
+    }
+
+    // Modal Deep Inspector Controller
+    async function inspectToken(mint) {
+      if (!mint) return;
+      currentInspectedMint = mint;
+      const modal = document.getElementById("inspect-modal");
+      const loadingState = document.getElementById("m-loading-state");
+      const contentState = document.getElementById("m-content-state");
+
+      modal.classList.add("open");
+      loadingState.style.display = "block";
+      contentState.style.display = "none";
+      document.getElementById("m-token-title").innerText = "Inspecting Token...";
+      document.getElementById("copy-mint-btn").innerText = "📋 Copy Mint";
+
+      try {
+        const res = await fetch("/api/inspect?mint=" + encodeURIComponent(mint));
+        if (!res.ok) throw new Error("HTTP " + res.status);
+        const report = await res.json();
+
+        // Populate Header & Identity
+        document.getElementById("m-token-title").innerHTML = \`\${escapeHtml(report.name)} <span style="color:var(--accent);">($\${escapeHtml(report.symbol)})</span>\`;
+        document.getElementById("m-mint-addr").innerText = report.mint;
+        document.getElementById("m-created-time").innerText = "Created: " + (report.created_at || "--");
+        document.getElementById("m-solscan-token-link").href = report.token_solscan;
+
+        // Bonding Curve Bar
+        const curvePct = Number(report.curve_progress_pct || 0);
+        document.getElementById("m-curve-text").innerText = curvePct.toFixed(1) + "% to Raydium";
+        document.getElementById("m-curve-bar").style.width = Math.min(100, Math.max(2, curvePct)) + "%";
+        document.getElementById("m-net-sol-hero").innerText = report.net_sol_deployed.toFixed(2) + " SOL Raised (" + report.unique_investors + " Buyers)";
+        document.getElementById("m-sol-to-grad").innerText = report.sol_to_graduation.toFixed(2) + " SOL remaining to migrate";
+
+        // Creator DNA
+        document.getElementById("m-creator-link").href = report.creator_solscan;
+        document.getElementById("m-creator-link").innerText = report.creator_short;
+        document.getElementById("m-dev-buy").innerText = report.creator_history.dev_buy_sol.toFixed(2) + " SOL (" + report.creator_history.dev_holds_pct + "% dev hold)";
+        document.getElementById("m-past-launches").innerText = report.creator_history.past_launches + " past launches";
+        
+        const rugBadge = document.getElementById("m-rug-badge");
+        if (report.creator_history.is_serial_rugger) {
+          rugBadge.className = "badge badge-red";
+          rugBadge.innerText = "❌ High Risk Serial Rugger";
+        } else if (report.creator_history.is_alpha_creator) {
+          rugBadge.className = "badge badge-purple";
+          rugBadge.innerText = "🎯 Verified Alpha Deployer";
+        } else {
+          rugBadge.className = "badge badge-green";
+          rugBadge.innerText = "✅ Clean Deployer";
+        }
+
+        // Socials box
+        let socialsHtml = "";
+        if (report.socials.twitter) socialsHtml += \`<a href="\${escapeHtml(report.socials.twitter)}" target="_blank" class="social-link">𝕏 Twitter</a>\`;
+        if (report.socials.telegram) socialsHtml += \`<a href="\${escapeHtml(report.socials.telegram)}" target="_blank" class="social-link">✈️ TG</a>\`;
+        if (report.socials.website) socialsHtml += \`<a href="\${escapeHtml(report.socials.website)}" target="_blank" class="social-link">🌐 Web</a>\`;
+        if (!socialsHtml) socialsHtml = '<span class="badge badge-muted">No Socials Found</span>';
+        document.getElementById("m-socials-box").innerHTML = socialsHtml;
+
+        // Financials
+        document.getElementById("m-net-sol").innerText = report.net_sol_deployed.toFixed(2) + " SOL";
+        document.getElementById("m-gross-inflow").innerText = report.total_inflow_sol.toFixed(2) + " SOL";
+        document.getElementById("m-gross-outflow").innerText = report.total_outflow_sol.toFixed(2) + " SOL";
+        document.getElementById("m-mcap").innerText = report.estimated_mcap_usd ? "$" + Number(report.estimated_mcap_usd).toLocaleString() : "--";
+        document.getElementById("m-trades-count").innerText = report.total_trades + " trades (" + report.unique_investors + " unique wallets)";
+
+        // Security / RugCheck
+        const secBadge = document.getElementById("m-rugcheck-status");
+        if (report.security.rugcheck_status === "SAFE") {
+          secBadge.className = "badge badge-green";
+          secBadge.innerText = "✅ SAFE";
+        } else if (report.security.rugcheck_status === "WARNING") {
+          secBadge.className = "badge badge-yellow";
+          secBadge.innerText = "⚠️ WARNING";
+        } else {
+          secBadge.className = "badge badge-red";
+          secBadge.innerText = "❌ DANGER";
+        }
+        document.getElementById("m-danger-score").innerText = report.security.rugcheck_score + " / 1000";
+
+        // Whale Gauge
+        const whaleGauge = document.getElementById("m-whale-gauge");
+        if (report.is_whale_concentrated) {
+          whaleGauge.className = "badge badge-yellow";
+          whaleGauge.innerText = "⚠️ Whale Concentrated (" + report.top5_share_pct.toFixed(0) + "% Top 5)";
+        } else {
+          whaleGauge.className = "badge badge-green";
+          whaleGauge.innerText = "✅ Healthy Distribution (CR5: " + report.top5_share_pct.toFixed(0) + "%)";
+        }
+
+        // Render Investors Table
+        const invBody = document.getElementById("m-investors-body");
+        if (report.investors && report.investors.length > 0) {
+          invBody.innerHTML = report.investors.map(inv => {
+            return \`<tr>
+              <td class="mono" style="color:var(--text-muted);">#\${inv.rank}</td>
+              <td><a class="mono" href="\${inv.solscan_url}" target="_blank">\${inv.short_wallet} ↗</a></td>
+              <td class="mono" style="font-weight:700;color:var(--text);">\${inv.net_sol.toFixed(2)} SOL</td>
+              <td class="mono" style="color:var(--text-muted);">\${inv.gross_buy_sol.toFixed(2)} SOL</td>
+              <td class="mono">\${inv.pct_share.toFixed(1)}%</td>
+              <td><span class="badge \${inv.tag_class}">\${escapeHtml(inv.tag)}</span></td>
+              <td class="mono" style="color:var(--text-muted);">\${inv.trades_count}</td>
+            </tr>\`;
+          }).join("");
+        } else {
+          invBody.innerHTML = \`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:14px;">Early launch state: trades are syncing from Solana slots.</td></tr>\`;
+        }
+
+        // Wire 1-Click Fast Sniper Links
+        document.getElementById("btn-photon").href = report.sniper_links.photon;
+        document.getElementById("btn-bullx").href = report.sniper_links.bullx;
+        document.getElementById("btn-gmgn").href = report.sniper_links.gmgn;
+        document.getElementById("btn-dexs").href = report.sniper_links.dexscreener;
+        document.getElementById("btn-pump").href = report.sniper_links.pumpfun;
+
+        loadingState.style.display = "none";
+        contentState.style.display = "flex";
+
+      } catch (err) {
+        loadingState.innerHTML = \`<div style="color:var(--red);padding:20px;">Failed to inspect token: \${escapeHtml(err.message)}</div>\`;
+      }
+    }
+
+    function closeInspectModal(e) {
+      if (e.target.id === "inspect-modal") {
+        document.getElementById("inspect-modal").classList.remove("open");
+      }
+    }
+
+    function closeInspectModalDirect() {
+      document.getElementById("inspect-modal").classList.remove("open");
+    }
+
+    document.addEventListener("keydown", (e) => {
+      if (e.key === "Escape") {
+        closeInspectModalDirect();
+      }
+    });
+
+    function copyMintAddress() {
+      if (!currentInspectedMint) return;
+      navigator.clipboard.writeText(currentInspectedMint).then(() => {
+        document.getElementById("copy-mint-btn").innerText = "✅ Copied!";
+        setTimeout(() => {
+          document.getElementById("copy-mint-btn").innerText = "📋 Copy Mint";
+        }, 2000);
+      });
     }
 
     function escapeHtml(str) {
