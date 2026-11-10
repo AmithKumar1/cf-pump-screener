@@ -128,9 +128,9 @@ export async function getDetailedTokenInspection(
   const totalsRow = await env.DB.prepare(
     `SELECT
        COUNT(DISTINCT trader) as unique_investors,
-       COALESCE(SUM(CASE WHEN side = 'BUY' THEN sol_amount ELSE 0 END), 0) as gross_buy_sol,
-       COALESCE(SUM(CASE WHEN side = 'SELL' THEN sol_amount ELSE 0 END), 0) as gross_sell_sol,
-       COALESCE(SUM(CASE WHEN side = 'BUY' THEN sol_amount ELSE -sol_amount END), 0) as net_sol,
+       COALESCE(SUM(CASE WHEN LOWER(side) = 'buy' THEN sol_amount ELSE 0 END), 0) as gross_buy_sol,
+       COALESCE(SUM(CASE WHEN LOWER(side) = 'sell' THEN sol_amount ELSE 0 END), 0) as gross_sell_sol,
+       COALESCE(SUM(CASE WHEN LOWER(side) = 'buy' THEN sol_amount ELSE -sol_amount END), 0) as net_sol,
        COUNT(*) as total_trades
      FROM trades
      WHERE mint = ?`
@@ -148,10 +148,10 @@ export async function getDetailedTokenInspection(
   const topRows = await env.DB.prepare(
     `SELECT
        trader,
-       COALESCE(SUM(CASE WHEN side = 'BUY' THEN sol_amount ELSE 0 END), 0) as buy_sol,
-       COALESCE(SUM(CASE WHEN side = 'SELL' THEN sol_amount ELSE 0 END), 0) as sell_sol,
-       COALESCE(SUM(CASE WHEN side = 'BUY' THEN sol_amount ELSE -sol_amount END), 0) as net_sol,
-       COALESCE(SUM(CASE WHEN side = 'BUY' THEN token_amount ELSE -token_amount END), 0) as net_tokens,
+       COALESCE(SUM(CASE WHEN LOWER(side) = 'buy' THEN sol_amount ELSE 0 END), 0) as buy_sol,
+       COALESCE(SUM(CASE WHEN LOWER(side) = 'sell' THEN sol_amount ELSE 0 END), 0) as sell_sol,
+       COALESCE(SUM(CASE WHEN LOWER(side) = 'buy' THEN sol_amount ELSE -sol_amount END), 0) as net_sol,
+       COALESCE(SUM(CASE WHEN LOWER(side) = 'buy' THEN token_amount ELSE -token_amount END), 0) as net_tokens,
        COUNT(*) as trades_count
      FROM trades
      WHERE mint = ?
