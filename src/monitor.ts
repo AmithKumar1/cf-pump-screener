@@ -101,7 +101,7 @@ export async function monitorActiveWatchlist(env: Env): Promise<void> {
       if (totalTx === 0) continue;
 
       const ofi = buys / totalTx;
-      // Raydium migration on pump.fun is ~69k mcap (85 SOL).
+      // PumpSwap migration on pump.fun is ~69k mcap (85 SOL).
       // 15 SOL milestone is ~12k mcap (approx 17-20% curve progress)
       const curveProgress = Math.max(0, Math.min(100, ((mcap - 4000) / 65000) * 100));
 

@@ -14,14 +14,7 @@ export const JITO_TIP_ACCOUNTS = new Set([
   "3AVi9Tg9Uo68tJfuvoKvqKNWKkC5wPdSSdeBnizKZ6jT",
 ]);
 
-export const KNOWN_ALPHA_WALLETS = new Set([
-  "HhX2kmCz3Bf825e3kQ3vGqE2k2b6Q4Z5s6T7u8V9w0X1",
-  "6b3Yw9H98YgU3gZgK9X2k5v6s7u8v9w0x1y2z3a4b5c6",
-  "4eR8t9u0v1w2x3y4z5a6b7c8d9e0f1g2h3i4j5k6l7m8",
-  "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
-  "FWznbcNXWQuHTawe9RxvQ2LdJSaoqSzDzxGRMtTh3whg",
-  "A7bK8T5M9xQ2vG816bUx9EPjHmaT23yvVM2ZWbrrpZb9",
-]);
+export const KNOWN_ALPHA_WALLETS = new Set<string>();
 
 /**
  * Calculate Herfindahl-Hirschman Index of buyer volumes.
@@ -299,7 +292,7 @@ export function computeHawkesProcess(
 }
 
 /**
- * Model 7: Cox Proportional Hazards Model (Predictive Raydium Migration Probability)
+ * Model 7: Cox Proportional Hazards Model (Predictive Curve Migration Probability)
  * Reference: Cox (1972), Kalbfleisch & Prentice (2002)
  * Computes calibrated probability of reaching 85 SOL graduation within forecast horizon (15m).
  */

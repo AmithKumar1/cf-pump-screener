@@ -17,7 +17,7 @@ import { parseHeliusCreate, parseHeliusSwap } from "./parser.ts";
 import { fetchTokenMetadata } from "./metadata.ts";
 import { renderDashboardHtml } from "./dashboard.ts";
 import { fetchRugCheck } from "./security.ts";
-import { getDetailedTokenInspection } from "./inspect.ts";
+import { getDetailedTokenInspection, fetchLiveSolPrice } from "./inspect.ts";
 
 function extractAuthToken(request: Request, url: URL): string | null {
   // 1. Authorization header: "Bearer <token>" or raw token (Helius Authentication Header)
@@ -28,8 +28,11 @@ function extractAuthToken(request: Request, url: URL): string | null {
     }
     return authHeader.trim();
   }
-  // 2. Custom header
-  const customHeader = request.headers.get("x-webhook-secret");
+  // 2. Custom webhook headers supported by Helius / webhooks
+  const customHeader =
+    request.headers.get("x-webhook-secret") ||
+    request.headers.get("auth-header") ||
+    request.headers.get("x-api-key");
   if (customHeader) {
     return customHeader.trim();
   }
@@ -68,16 +71,14 @@ export interface WhaleTradeAlert {
   sol_amount: number;
   token_amount: number;
   timestamp: string;
-  win_rate: number;
 }
 
 export interface TrackedWhale {
   wallet: string;
   short: string;
   alias: string;
-  win_rate: number;
-  total_pnl_sol: number;
-  trades_count: number;
+  observed_trades: number;
+  net_sol_observed: number;
   added_at: number;
 }
 
@@ -100,82 +101,13 @@ const MEM_CACHE: MemoryFeedCache = {
   withSocials: 0,
   serialRuggersBlocked: 0,
   lastDbSync: 0,
-  whaleTrades: [
-    {
-      signature: "5K2n...7mQp",
-      trader: "FWznbcNXWQuHTawe9RxvQ2LdJSaoqSzDzxGRMtTh3whg",
-      trader_short: "FWzn...3whg",
-      alias: "Raydium Arbitrage Whale",
-      mint: "FMQGFBkyq4Zc8tV5WfT2qK9X2k5v6s7u8v9w0x1pump",
-      symbol: "FMQGFB",
-      side: "buy",
-      sol_amount: 8.5,
-      token_amount: 24500000,
-      timestamp: new Date(Date.now() - 45000).toISOString(),
-      win_rate: 79,
-    },
-    {
-      signature: "3J9x...2vRt",
-      trader: "HhX2kmCz3Bf825e3kQ3vGqE2k2b6Q4Z5s6T7u8V9w0X1",
-      trader_short: "HhX2...w0X1",
-      alias: "Alpha Sniper #1",
-      mint: "78ZADQkyq4Zc8tV5WfT2qK9X2k5v6s7u8v9w0x1pump",
-      symbol: "78ZADQ",
-      side: "buy",
-      sol_amount: 5.2,
-      token_amount: 18900000,
-      timestamp: new Date(Date.now() - 110000).toISOString(),
-      win_rate: 84,
-    },
-  ],
-  trackedWhales: [
-    {
-      wallet: "HhX2kmCz3Bf825e3kQ3vGqE2k2b6Q4Z5s6T7u8V9w0X1",
-      short: "HhX2...w0X1",
-      alias: "Alpha Sniper #1",
-      win_rate: 84,
-      total_pnl_sol: 320,
-      trades_count: 54,
-      added_at: Date.now(),
-    },
-    {
-      wallet: "FWznbcNXWQuHTawe9RxvQ2LdJSaoqSzDzxGRMtTh3whg",
-      short: "FWzn...3whg",
-      alias: "Raydium Arbitrage Whale",
-      win_rate: 79,
-      total_pnl_sol: 510,
-      trades_count: 88,
-      added_at: Date.now(),
-    },
-    {
-      wallet: "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
-      short: "9xQe...VFin",
-      alias: "Curve Accumulator",
-      win_rate: 81,
-      total_pnl_sol: 240,
-      trades_count: 42,
-      added_at: Date.now(),
-    },
-    {
-      wallet: "A7bK8T5M9xQ2vG816bUx9EPjHmaT23yvVM2ZWbrrpZb9",
-      short: "A7bK...pZb9",
-      alias: "Microstructure Scalper",
-      win_rate: 76,
-      total_pnl_sol: 190,
-      trades_count: 36,
-      added_at: Date.now(),
-    },
-    {
-      wallet: "6b3Yw9H98YgU3gZgK9X2k5v6s7u8v9w0x1y2z3a4b5c6",
-      short: "6b3Y...b5c6",
-      alias: "Smart Deployer Tracker",
-      win_rate: 88,
-      total_pnl_sol: 450,
-      trades_count: 67,
-      added_at: Date.now(),
-    },
-  ],
+  whaleTrades: [],
+  trackedWhales: [],
 };
+
+// Rate-limiting and inspection response caching (mitigates external API exhaustion)
+const INSPECT_CACHE = new Map<string, { report: any; expiresAt: number }>();
+const INSPECT_IP_WINDOW = new Map<string, number[]>();
 
 export default {
   /**
@@ -185,7 +117,7 @@ export default {
     const url = new URL(request.url);
 
     // Live Visual Dashboard
-    if (url.pathname === "/dashboard" || (url.pathname === "/" && request.headers.get("Accept")?.includes("text/html"))) {
+    if (url.pathname === "/dashboard" || url.pathname === "/terminal" || (url.pathname === "/" && request.headers.get("Accept")?.includes("text/html"))) {
       return new Response(renderDashboardHtml(), {
         headers: {
           "Content-Type": "text/html; charset=utf-8",
@@ -194,8 +126,23 @@ export default {
       });
     }
 
-    // Detailed Token & Whale Inspector API
+    // Detailed Token & Whale Inspector API (Rate-Limited & In-Memory Cached)
     if (url.pathname === "/api/inspect") {
+      const clientIp = request.headers.get("cf-connecting-ip") || "anon";
+      const now = Date.now();
+
+      // Sliding 60-second rate-limit window: max 25 calls / minute per IP
+      let clientCalls = INSPECT_IP_WINDOW.get(clientIp) || [];
+      clientCalls = clientCalls.filter(t => now - t < 60000);
+      if (clientCalls.length >= 25) {
+        return new Response(
+          JSON.stringify({ error: "Rate limit exceeded (max 25 inspect requests / minute)" }),
+          { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "10" } }
+        );
+      }
+      clientCalls.push(now);
+      INSPECT_IP_WINDOW.set(clientIp, clientCalls);
+
       const mint = url.searchParams.get("mint");
       if (!mint) {
         return new Response(JSON.stringify({ error: "Missing mint parameter" }), {
@@ -204,12 +151,27 @@ export default {
         });
       }
 
+      // Check 15-second in-memory report cache
+      const cached = INSPECT_CACHE.get(mint);
+      if (cached && now < cached.expiresAt) {
+        return new Response(JSON.stringify(cached.report), {
+          headers: {
+            "Content-Type": "application/json",
+            "Cache-Control": "public, max-age=15",
+            "X-Cache": "HIT",
+          },
+        });
+      }
+
       try {
         const report = await getDetailedTokenInspection(mint, env);
+        INSPECT_CACHE.set(mint, { report, expiresAt: now + 15000 });
+
         return new Response(JSON.stringify(report), {
           headers: {
             "Content-Type": "application/json",
-            "Cache-Control": "public, max-age=5",
+            "Cache-Control": "public, max-age=15",
+            "X-Cache": "MISS",
           },
         });
       } catch (err: any) {
@@ -247,10 +209,13 @@ export default {
         }));
       }
 
+      const solPriceInfo = await fetchLiveSolPrice();
+
       return new Response(
         JSON.stringify({
           service: "cf-pump-screener",
           status: "healthy",
+          sol_price_usd: solPriceInfo.price,
           stats: {
             launches_logged: MEM_CACHE.maxId,
             with_socials: MEM_CACHE.withSocials,
@@ -267,8 +232,17 @@ export default {
       );
     }
 
-    // Track a Whale Wallet
+    // Track a Whale Wallet (Protected via Authorization: Bearer <secret> or ?secret=)
     if (url.pathname === "/api/track-whale" && request.method === "POST") {
+      const secret = extractAuthToken(request, url);
+      const expectedSecret = env.WEBHOOK_SECRET;
+      if (!expectedSecret || secret !== expectedSecret) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       try {
         const body = await request.json<any>();
         const wallet = String(body.wallet || "").trim();
@@ -279,9 +253,8 @@ export default {
               wallet,
               short: wallet.slice(0, 4) + "..." + wallet.slice(-4),
               alias,
-              win_rate: 78,
-              total_pnl_sol: 0,
-              trades_count: 1,
+              observed_trades: 1,
+              net_sol_observed: 0,
               added_at: Date.now(),
             });
           }
@@ -295,8 +268,17 @@ export default {
       }
     }
 
-    // Untrack a Whale Wallet
+    // Untrack a Whale Wallet (Protected via Authorization: Bearer <secret> or ?secret=)
     if (url.pathname === "/api/untrack-whale" && request.method === "POST") {
+      const secret = extractAuthToken(request, url);
+      const expectedSecret = env.WEBHOOK_SECRET;
+      if (!expectedSecret || secret !== expectedSecret) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { "Content-Type": "application/json" },
+        });
+      }
+
       try {
         const body = await request.json<any>();
         const wallet = String(body.wallet || "").trim();
@@ -334,8 +316,8 @@ export default {
     // View recent signals (Protected with secret via header or query)
     if (url.pathname === "/alerts") {
       const secret = extractAuthToken(request, url);
-      const expectedSecret = env.WEBHOOK_SECRET || "pump_secret_key_123";
-      if (secret !== expectedSecret) {
+      const expectedSecret = env.WEBHOOK_SECRET;
+      if (!expectedSecret || secret !== expectedSecret) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
       }
 
@@ -350,8 +332,8 @@ export default {
     // Ingestion Webhook (POST /webhook)
     if (url.pathname === "/webhook" && request.method === "POST") {
       const secret = extractAuthToken(request, url);
-      const expectedSecret = env.WEBHOOK_SECRET || "pump_secret_key_123";
-      if (secret !== expectedSecret) {
+      const expectedSecret = env.WEBHOOK_SECRET;
+      if (!expectedSecret || secret !== expectedSecret) {
         return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
       }
 
@@ -430,44 +412,32 @@ export default {
             );
             mintsToEvaluate.add(heliusSwap.mint);
 
-            // Whale / Sniper Interceptor
+            // Whale / Sniper Interceptor (User-tracked wallets only)
             const matchedWhale = MEM_CACHE.trackedWhales.find(w => w.wallet === heliusSwap.trader);
-            const isAlpha = KNOWN_ALPHA_WALLETS.has(heliusSwap.trader);
-            const isConviction = heliusSwap.sol_amount >= 3.0;
 
-            if (matchedWhale || isAlpha || isConviction) {
+            if (matchedWhale) {
+              matchedWhale.observed_trades = (matchedWhale.observed_trades || 0) + 1;
+              if (heliusSwap.side === "buy") {
+                matchedWhale.net_sol_observed = Number(((matchedWhale.net_sol_observed || 0) + heliusSwap.sol_amount).toFixed(2));
+              } else {
+                matchedWhale.net_sol_observed = Number(((matchedWhale.net_sol_observed || 0) - heliusSwap.sol_amount).toFixed(2));
+              }
+
               const sym = MEM_CACHE.events.find(e => e.mint === heliusSwap.mint)?.symbol || "PUMP";
-              const aliasName = matchedWhale ? matchedWhale.alias : isAlpha ? "Elite Alpha Sniper" : "Mega Conviction Whale";
-              const winRateVal = matchedWhale ? matchedWhale.win_rate : isAlpha ? 85 : 78;
-
               const whaleItem: WhaleTradeAlert = {
                 signature: heliusSwap.signature,
                 trader: heliusSwap.trader,
                 trader_short: heliusSwap.trader.slice(0, 4) + "..." + heliusSwap.trader.slice(-4),
-                alias: aliasName,
+                alias: matchedWhale.alias,
                 mint: heliusSwap.mint,
                 symbol: sym,
                 side: heliusSwap.side as "buy" | "sell",
                 sol_amount: Number(heliusSwap.sol_amount.toFixed(2)),
                 token_amount: Number(heliusSwap.token_amount.toFixed(0)),
                 timestamp: new Date().toISOString(),
-                win_rate: winRateVal,
               };
               MEM_CACHE.whaleTrades.unshift(whaleItem);
               if (MEM_CACHE.whaleTrades.length > 40) MEM_CACHE.whaleTrades.pop();
-
-              if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
-                const tgText = formatWhaleTradeCard(
-                  heliusSwap.trader,
-                  whaleItem.alias,
-                  whaleItem.side,
-                  whaleItem.sol_amount,
-                  heliusSwap.mint,
-                  sym,
-                  whaleItem.win_rate
-                );
-                ctx.waitUntil(sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, tgText));
-              }
             }
 
             continue;
@@ -502,6 +472,8 @@ export default {
             const signature = item.signature || `sig_${nowMs}_${Math.random().toString(36).slice(2, 8)}`;
             const mint = item.mint;
             if (!mint) continue;
+            // Reject non-pump tokens from trades table
+            if (!mint.endsWith("pump") && !item.isPump) continue;
             const side = item.txType || item.side;
             const trader = item.traderPublicKey || item.trader || "unknown";
             const solAmount = Number(item.solAmount || item.sol_amount || 0);
@@ -515,44 +487,32 @@ export default {
               ).bind(signature, mint, side, trader, solAmount, tokenAmount, blockTime)
             );
 
-            // Whale / Sniper Interceptor
+            // Whale / Sniper Interceptor (User-tracked wallets only)
             const matchedWhale = MEM_CACHE.trackedWhales.find(w => w.wallet === trader);
-            const isAlpha = KNOWN_ALPHA_WALLETS.has(trader);
-            const isConviction = solAmount >= 3.0;
 
-            if (matchedWhale || isAlpha || isConviction) {
+            if (matchedWhale) {
+              matchedWhale.observed_trades = (matchedWhale.observed_trades || 0) + 1;
+              if (side === "buy") {
+                matchedWhale.net_sol_observed = Number(((matchedWhale.net_sol_observed || 0) + solAmount).toFixed(2));
+              } else {
+                matchedWhale.net_sol_observed = Number(((matchedWhale.net_sol_observed || 0) - solAmount).toFixed(2));
+              }
+
               const sym = MEM_CACHE.events.find(e => e.mint === mint)?.symbol || item.symbol || "PUMP";
-              const aliasName = matchedWhale ? matchedWhale.alias : isAlpha ? "Elite Alpha Sniper" : "Mega Conviction Whale";
-              const winRateVal = matchedWhale ? matchedWhale.win_rate : isAlpha ? 85 : 78;
-
               const whaleItem: WhaleTradeAlert = {
                 signature,
                 trader,
                 trader_short: trader.slice(0, 4) + "..." + trader.slice(-4),
-                alias: aliasName,
+                alias: matchedWhale.alias,
                 mint,
                 symbol: sym,
                 side: side as "buy" | "sell",
                 sol_amount: Number(solAmount.toFixed(2)),
                 token_amount: Number(tokenAmount.toFixed(0)),
                 timestamp: new Date().toISOString(),
-                win_rate: winRateVal,
               };
               MEM_CACHE.whaleTrades.unshift(whaleItem);
               if (MEM_CACHE.whaleTrades.length > 40) MEM_CACHE.whaleTrades.pop();
-
-              if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
-                const tgText = formatWhaleTradeCard(
-                  trader,
-                  whaleItem.alias,
-                  whaleItem.side,
-                  solAmount,
-                  mint,
-                  sym,
-                  whaleItem.win_rate
-                );
-                ctx.waitUntil(sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, tgText));
-              }
             }
 
             mintsToEvaluate.add(mint);
@@ -761,12 +721,18 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
  * On-chain evaluation and Telegram alert trigger
  */
 async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
-  // 1. Fetch token event metadata (with graceful fallback if launched prior to stream)
+  // 1. Verify token is a genuine Pump.fun token (ends in "pump" or exists in events)
+  const isPumpMint = mint.endsWith("pump");
   const eventRow = await env.DB.prepare(
     "SELECT * FROM events WHERE mint = ? AND kind = 'new_token' LIMIT 1"
   )
     .bind(mint)
     .first<any>();
+
+  if (!isPumpMint && !eventRow) {
+    // Non-pump.fun generic token - do not evaluate on bonding curve
+    return;
+  }
 
   // 2. Fetch all recorded trades for this token
   const tradeRows = await env.DB.prepare(

@@ -453,15 +453,20 @@ describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", ()
   });
 
   it("Theorem 21: Smart-Money & Elite Whale Tracker identifies alpha wallet conviction", () => {
-    const alphaWallet = Array.from(KNOWN_ALPHA_WALLETS)[0];
+    const customTracked = new Set(["custom_tracked_whale_1"]);
     const alphaTrades: TradePoint[] = [
-      { signature: "t1", mint: "M1", side: "buy", trader: alphaWallet, sol_amount: 3.5, token_amount: 3500 },
+      { signature: "t1", mint: "M1", side: "buy", trader: "custom_tracked_whale_1", sol_amount: 3.5, token_amount: 3500 },
       { signature: "t2", mint: "M1", side: "buy", trader: "anon_user", sol_amount: 0.5, token_amount: 500 },
     ];
-    const sm = checkSmartMoney(alphaTrades);
+    const sm = checkSmartMoney(alphaTrades, customTracked);
     assert.equal(sm.is_smart_money_in, true);
     assert.equal(sm.smart_money_buyers, 1);
     assert.equal(sm.smart_money_sol, 3.5);
+
+    // Empty tracked list returns zero smart money
+    const smEmpty = checkSmartMoney(alphaTrades, new Set());
+    assert.equal(smEmpty.is_smart_money_in, false);
+    assert.equal(smEmpty.smart_money_buyers, 0);
   });
 
   it("Theorem 11: Clean High-Conviction Token Passes All Institutional, Predictive & Forensic Gates", () => {
@@ -556,7 +561,7 @@ describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", ()
     assert.ok(card.includes("HHI:"));
     assert.ok(card.includes("Microstructure: VPIN"));
     assert.ok(card.includes("Predictive & Forecasting Analytics:"));
-    assert.ok(card.includes("Raydium Migration Probability:"));
+    assert.ok(card.includes("Migration Probability:"));
     assert.ok(card.includes("Elite Quant & Forensic Intelligence:"));
     assert.ok(card.includes("MEV Forensics:"));
     assert.ok(card.includes("Creator DNA: Serial Rug Index:"));
@@ -661,5 +666,52 @@ describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", ()
     assert.ok(report.sybil_intelligence.bubble_graph.nodes.length >= 1);
     assert.ok(report.jito_execution);
     assert.ok(report.jito_execution.recommended_tip_sol > 0);
+  });
+
+  it("Theorem 22: Deterministic Pump.fun Bonding Curve Pricing Formula", () => {
+    // S_0 = 30 SOL virtual, k = 32.19B
+    // Price = (30 + S_curve)^2 / 32.19B
+    // Total MCap = 1B * Price * SOL_USD
+    const solUsd = 184.20;
+
+    // 0 SOL (Launch)
+    const p0 = (30 * 30) / 32_190_000_000;
+    const mcap0 = 1_000_000_000 * p0 * solUsd;
+    assert.ok(Math.abs(mcap0 - 5150.98) < 1.0, `Expected ~5151 USD at launch, got ${mcap0}`);
+
+    // 85 SOL (Graduation threshold)
+    const p85 = (115 * 115) / 32_190_000_000;
+    const mcap85 = 1_000_000_000 * p85 * solUsd;
+    assert.ok(Math.abs(mcap85 - 75677.23) < 1.0, `Expected ~75677 USD at graduation, got ${mcap85}`);
+  });
+
+  it("Deep Inspector: verifies MCap source differentiation (Bonding Curve vs PumpSwap/DEX Pool)", async () => {
+    const mockEnvCurve = {
+      DB: {
+        prepare: () => ({
+          bind: () => ({
+            first: async () => ({
+              received_at: 1700000000000,
+              mint: "CURVE_MINT",
+              creator: "DEV_ADDR",
+              name: "Curve Token",
+              symbol: "CURV",
+              net_sol: 25.0,
+              gross_buy_sol: 25.0,
+              gross_sell_sol: 0.0,
+              unique_traders: 15,
+              total_trades: 20,
+            }),
+            all: async () => ({ results: [] }),
+          }),
+        }),
+      } as any,
+    };
+
+    const curveReport = await getDetailedTokenInspection("CURVE_MINT", mockEnvCurve);
+    assert.strictEqual(curveReport.mcap_source, "BONDING_CURVE");
+    assert.ok(curveReport.estimated_mcap_usd > 5000 && curveReport.estimated_mcap_usd < 75000);
+    assert.ok(curveReport.sol_price_usd > 0);
+    assert.ok(Array.isArray(curveReport.timeline_points));
   });
 });

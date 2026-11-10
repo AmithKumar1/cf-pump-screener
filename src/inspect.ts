@@ -1,6 +1,5 @@
 import type { Env } from "./types.ts";
 import { fetchRugCheck } from "./security.ts";
-import { KNOWN_ALPHA_WALLETS } from "./screener.ts";
 
 export interface InvestorRecord {
   rank: number;
@@ -9,10 +8,24 @@ export interface InvestorRecord {
   solscan_url: string;
   net_sol: number;
   gross_buy_sol: number;
+  gross_sell_sol: number;
   pct_share: number;
   tag: string;
   tag_class: string;
   trades_count: number;
+}
+
+export interface LaunchTimelinePoint {
+  signature: string;
+  trader: string;
+  short_trader: string;
+  side: "buy" | "sell";
+  sol_amount: number;
+  token_amount: number;
+  block_time: number;
+  elapsed_seconds: number;
+  is_bundled: boolean;
+  tier: "creator" | "bundle" | "whale" | "buyer";
 }
 
 export interface SybilBubbleNode {
@@ -92,12 +105,16 @@ export interface TokenInspectionReport {
 
   // Financials & Bonding Curve
   net_sol_deployed: number;
+  curve_reserve_sol: number;
   total_inflow_sol: number;
   total_outflow_sol: number;
   curve_progress_pct: number;
   sol_to_graduation: number;
   estimated_mcap_usd: number;
   price_usd: number | null;
+  mcap_source: "BONDING_CURVE" | "PUMPSWAP" | "RAYDIUM" | "DEX_POOL";
+  sol_price_usd: number;
+  sol_price_is_live: boolean;
   total_trades: number;
   unique_investors: number;
 
@@ -113,6 +130,7 @@ export interface TokenInspectionReport {
 
   // Whale & Investor Distribution
   investors: InvestorRecord[];
+  timeline_points: LaunchTimelinePoint[];
   top5_share_pct: number;
   hhi_score: number;
   is_whale_concentrated: boolean;
@@ -174,7 +192,8 @@ export async function getDetailedTokenInspection(
 
   // 2. Creator Historical Activity
   let pastLaunches = 1;
-  if (creator !== "unknown") {
+  const isUnknownCreator = !creator || creator === "unknown";
+  if (!isUnknownCreator) {
     const creatorCount = await env.DB.prepare(
       "SELECT COUNT(*) as count FROM events WHERE creator = ?"
     )
@@ -183,8 +202,8 @@ export async function getDetailedTokenInspection(
     pastLaunches = creatorCount?.count || 1;
   }
 
-  const isAlphaCreator = KNOWN_ALPHA_WALLETS.has(creator);
-  const isSerialRugger = pastLaunches >= 4 && !isAlphaCreator;
+  // Serial Launcher heuristic: deployer wallet with >= 4 launches recorded in DB
+  const isSerialRugger = !isUnknownCreator && pastLaunches >= 4;
   const rugIndex = isSerialRugger ? Math.min(1, pastLaunches / 10) : 0;
 
   // 3. Trade Totals & Summary
@@ -207,13 +226,13 @@ export async function getDetailedTokenInspection(
   const grossSellSol = Number(totalsRow?.gross_sell_sol || 0);
   const netSol = Number(totalsRow?.net_sol || 0);
 
-  // 4. Early Trades for Sybil & Co-Execution Clustering
+  // 4. Early Trades for Sybil & Co-Execution Clustering & Launch Timeline
   const earlyTradesRows = await env.DB.prepare(
-    `SELECT trader, sol_amount, block_time
+    `SELECT signature, trader, sol_amount, token_amount, side, block_time
      FROM trades
-     WHERE mint = ? AND LOWER(side) = 'buy'
+     WHERE mint = ?
      ORDER BY block_time ASC
-     LIMIT 25`
+     LIMIT 40`
   )
     .bind(mint)
     .all<any>();
@@ -222,7 +241,11 @@ export async function getDetailedTokenInspection(
   const sameSlotSet = new Set<string>();
   let earlyClusterSol = 0;
 
-  for (const t of earlyTradesRows.results || []) {
+  const earlyTrades = earlyTradesRows.results || [];
+  const minBlockTime = earlyTrades[0]?.block_time ? Number(earlyTrades[0].block_time) : 0;
+
+  for (const t of earlyTrades) {
+    if ((t.side || "").toLowerCase() !== "buy") continue;
     const bTime = Number(t.block_time || 0);
     if (!bTime) continue;
     if (!timeMap.has(bTime)) {
@@ -237,20 +260,51 @@ export async function getDetailedTokenInspection(
     }
   }
 
-  for (const t of earlyTradesRows.results || []) {
-    if (sameSlotSet.has(t.trader)) {
+  for (const t of earlyTrades) {
+    if ((t.side || "").toLowerCase() === "buy" && sameSlotSet.has(t.trader)) {
       earlyClusterSol += Number(t.sol_amount || 0);
     }
   }
 
+  const timelinePoints: LaunchTimelinePoint[] = earlyTrades.map(t => {
+    const bTime = Number(t.block_time || 0);
+    const elapsed = minBlockTime > 0 && bTime >= minBlockTime ? bTime - minBlockTime : 0;
+    const isBundled = sameSlotSet.has(t.trader) && t.trader !== creator;
+    const tier: "creator" | "bundle" | "whale" | "buyer" =
+      t.trader === creator
+        ? "creator"
+        : isBundled
+        ? "bundle"
+        : Number(t.sol_amount || 0) >= 2.0
+        ? "whale"
+        : "buyer";
+
+    return {
+      signature: t.signature || "",
+      trader: t.trader,
+      short_trader: t.trader.slice(0, 4) + "..." + t.trader.slice(-4),
+      side: ((t.side || "buy").toLowerCase() === "sell" ? "sell" : "buy") as "buy" | "sell",
+      sol_amount: Number(Number(t.sol_amount || 0).toFixed(2)),
+      token_amount: Number(Number(t.token_amount || 0).toFixed(0)),
+      block_time: bTime,
+      elapsed_seconds: elapsed,
+      is_bundled: isBundled,
+      tier,
+    };
+  });
+
   const sameSlotWallets = Array.from(sameSlotSet);
   const insiderHoldingPct = grossBuySol > 0 ? (earlyClusterSol / grossBuySol) * 100 : 0;
-  const isBundledLaunch = sameSlotWallets.length >= 3 || insiderHoldingPct > 35;
+  // Calibrated using empirical D1 baseline (778 tokens share 2 co-timed wallets organically):
+  // True bundling requires either high co-execution (>=4 wallets) or high capital concentration (>=2 wallets holding >=20% inflow).
+  const isBundledLaunch = sameSlotWallets.length >= 4 || (sameSlotWallets.length >= 2 && insiderHoldingPct >= 20.0);
   const clusterVerdict = isBundledLaunch
-    ? "❌ High Sybil Co-Execution (Bundled Snipers)"
-    : sameSlotWallets.length > 0
-    ? "⚠️ Moderate Co-Execution (Co-Timed Orders)"
-    : "✅ Organic Decentralized Order Flow";
+    ? (insiderHoldingPct >= 35 ? "❌ High Sybil Co-Execution (Bundled Snipers)" : `🚨 Concentrated Bundle Risk (${insiderHoldingPct.toFixed(1)}% Inflow)`)
+    : sameSlotWallets.length >= 2
+    ? `⚠️ Co-Timed Wallets (${sameSlotWallets.length} wallets, ${insiderHoldingPct.toFixed(1)}% inflow)`
+    : sameSlotWallets.length === 1
+    ? "ℹ️ Isolated Co-Timed Transaction"
+    : "✅ Organic Distributed Order Flow";
 
   // 5. Top Investors Breakdown
   const topRows = await env.DB.prepare(
@@ -280,24 +334,27 @@ export async function getDetailedTokenInspection(
   const bubbleLinks: SybilBubbleLink[] = [];
 
   // Creator bubble node
-  const creatorShort = creator.slice(0, 4) + "..." + creator.slice(-4);
+  const creatorShort = isUnknownCreator ? "Proxy Deployer" : creator.slice(0, 4) + "..." + creator.slice(-4);
   bubbleNodes.push({
     id: creator,
     short: creatorShort,
     role: "CREATOR",
-    color: "#f59e0b",
+    color: isUnknownCreator ? "#94a3b8" : "#f59e0b",
     sol: 0, // updated below once dev buy found
     net_sol: 0,
     share_pct: 0,
     trades_count: 1,
-    transfer_info: "Token deployer / initial bonding curve creation",
-    solscan_url: `https://solscan.io/account/${creator}`,
-    tag: "👨‍💻 Creator Deployer",
+    transfer_info: isUnknownCreator
+      ? "⚠️ Unverified Deployer (Sponsored launch / Fee-Payer Proxy)"
+      : "Token deployer / initial bonding curve creation",
+    solscan_url: isUnknownCreator ? `https://solscan.io/token/${mint}` : `https://solscan.io/account/${creator}`,
+    tag: isUnknownCreator ? "⚠️ Unverified Deployer" : "👨‍💻 Creator Deployer",
   });
 
   const investors: InvestorRecord[] = (topRows.results || []).map((row, idx) => {
     const traderNet = Number(row.net_sol || 0);
     const traderBuy = Number(row.buy_sol || 0);
+    const traderSell = Number(row.sell_sol || 0);
     const isDev = row.trader === creator;
     if (isDev) {
       devBuySol = traderBuy;
@@ -321,22 +378,17 @@ export async function getDetailedTokenInspection(
     let nodeColor = "#00d2ff";
 
     if (isDev) {
-      tag = "👨‍💻 Dev Deployer";
-      tagClass = "badge-yellow";
+      tag = isUnknownCreator ? "⚠️ Proxy Deployer" : "👨‍💻 Dev Deployer";
+      tagClass = isUnknownCreator ? "badge-muted" : "badge-yellow";
       role = "CREATOR";
-      nodeColor = "#f59e0b";
+      nodeColor = isUnknownCreator ? "#94a3b8" : "#f59e0b";
     } else if (isSameSlot) {
       tag = "🤖 Bundled Insider";
       tagClass = "badge-red";
       role = "BUNDLED_INSIDER";
       nodeColor = "#ef4444";
-    } else if (KNOWN_ALPHA_WALLETS.has(row.trader)) {
-      tag = "🎯 Smart Alpha Whale";
-      tagClass = "badge-purple";
-      role = "ALPHA_WHALE";
-      nodeColor = "#a855f7";
     } else if (traderNet >= 2.0) {
-      tag = "🐋 Conviction Whale";
+      tag = "🐋 Large Buyer (>=2 SOL)";
       tagClass = "badge-green";
       role = "WHALE";
       nodeColor = "#10b981";
@@ -382,6 +434,7 @@ export async function getDetailedTokenInspection(
       solscan_url: `https://solscan.io/account/${row.trader}`,
       net_sol: Number(traderNet.toFixed(3)),
       gross_buy_sol: Number(traderBuy.toFixed(3)),
+      gross_sell_sol: Number(traderSell.toFixed(3)),
       pct_share: Number(sharePct.toFixed(1)),
       tag,
       tag_class: tagClass,
@@ -390,22 +443,48 @@ export async function getDetailedTokenInspection(
   });
 
   const top5SharePct = netSol > 0 ? Math.min(100, (top5NetSol / netSol) * 100) : 0;
-  const isWhaleConcentrated = top5SharePct > 65 || sumSquaredShares > 0.25;
+  const isWhaleConcentrated = top5SharePct > 55 || sumSquaredShares > 0.20 || insiderHoldingPct >= 25;
 
-  // 6. Parallel live data: RugCheck & DexScreener
-  const [rugCheck, dexData] = await Promise.all([
+  // 6. Parallel live data: RugCheck & DexScreener & Live SOL Price
+  const [rugCheck, dexData, solPriceInfo] = await Promise.all([
     fetchRugCheck(mint),
     fetchDexScreenerData(mint),
+    fetchLiveSolPrice(),
   ]);
 
-  // Bonding Curve: Standard Pump.fun curve requires ~85 SOL to graduate to Raydium
+  const solUsd = solPriceInfo.price;
+
+  // Bonding Curve: Standard Pump.fun curve requires ~85 SOL to migrate to PumpSwap AMM
   const GRADUATION_SOL_TARGET = 85.0;
+  const curveReserveSol = Math.min(GRADUATION_SOL_TARGET, Math.max(0, netSol));
   const curveProgress = Math.min(100, Math.max(0, (netSol / GRADUATION_SOL_TARGET) * 100));
   const solToGraduation = Math.max(0, GRADUATION_SOL_TARGET - netSol);
+  const isGraduated = curveProgress >= 100 || (dexData?.marketCap != null && (dexData.dexId === "pumpswap" || dexData.dexId === "raydium") && netSol >= 75);
 
-  // Market Cap Estimation: Use DexScreener if available, otherwise estimate from curve
-  let estimatedMcapUsd = dexData?.marketCap || Math.round(5000 + netSol * 180);
-  let priceUsd = dexData?.priceUsd || null;
+  // Deterministic Curve Pricing:
+  const virtualSol = 30.0 + curveReserveSol;
+  const tokenPriceSol = (virtualSol * virtualSol) / 32_190_000_000;
+  const deterministicMcapUsd = Math.round((1_000_000_000 * tokenPriceSol) * solUsd);
+
+  let estimatedMcapUsd: number;
+  let priceUsd: number;
+  let mcapSource: "BONDING_CURVE" | "PUMPSWAP" | "RAYDIUM" | "DEX_POOL";
+
+  if (isGraduated && dexData?.marketCap) {
+    estimatedMcapUsd = Math.round(dexData.marketCap);
+    priceUsd = dexData.priceUsd || Number((tokenPriceSol * solUsd).toFixed(8));
+    if (dexData.dexId === "pumpswap") {
+      mcapSource = "PUMPSWAP";
+    } else if (dexData.dexId === "raydium") {
+      mcapSource = "RAYDIUM";
+    } else {
+      mcapSource = "DEX_POOL";
+    }
+  } else {
+    estimatedMcapUsd = deterministicMcapUsd;
+    priceUsd = Number((tokenPriceSol * solUsd).toFixed(8));
+    mcapSource = "BONDING_CURVE";
+  }
 
   // 7. Jito Anti-MEV Tip Recommendation
   let mevRiskLevel: "LOW" | "MEDIUM" | "HIGH" = "LOW";
@@ -452,17 +531,17 @@ export async function getDetailedTokenInspection(
   if (isSerialRugger || rugCheck.score > 500) {
     memoVerdict = "AVOID_RUG";
     memoBadge = "badge-red";
-    memoTitle = "CRITICAL HAZARD: SERIAL RUGGER / FAILED AUDIT";
+    memoTitle = "CRITICAL HAZARD: SERIAL RUGGER / HIGH RISK CONTRACT";
     riskLevel = "CRITICAL";
-  } else if (isBundledLaunch && insiderHoldingPct > 15) {
+  } else if (isBundledLaunch || insiderHoldingPct >= 20.0) {
     memoVerdict = "CAUTION";
     memoBadge = "badge-yellow";
-    memoTitle = "INSIDER BUNDLE DETECTED: HIGH DUMP RISK";
+    memoTitle = `INSIDER BUNDLE DETECTED: ${insiderHoldingPct.toFixed(1)}% EARLY INFLOW`;
     riskLevel = "HIGH";
   } else if (netSol >= 10 && uniqueInvestors >= 10 && !isWhaleConcentrated) {
     memoVerdict = "ACCUMULATE";
     memoBadge = "badge-green";
-    memoTitle = "HIGH CONVICTION: ORGANIC DECENTRALIZED ACCUMULATION";
+    memoTitle = "ORGANIC ORDER FLOW: DISTRIBUTED INFLOW";
     riskLevel = "LOW";
   }
 
@@ -474,19 +553,29 @@ export async function getDetailedTokenInspection(
       memoVerdict === "ACCUMULATE"
         ? "Order flow reflects decentralized accumulation with healthy power-law distribution and low insider clustering."
         : memoVerdict === "AVOID_RUG"
-        ? "Extreme caution advised: deployer signature correlates with historical serial rugging or high-risk contracts."
+        ? "Elevated risk profile: deployer signature correlates with frequent token generation or high contract penalties."
+        : isBundledLaunch
+        ? `Co-executed bundle activity detected (${insiderHoldingPct.toFixed(1)}% of early inflow).`
         : "Early discovery phase with active bonding curve progression."
     }`,
-    creator_analysis: `Deployer wallet ${creatorShort} has launched ${pastLaunches} token(s). Dev initial purchase was ${devBuySol.toFixed(2)} SOL. Serial Rug Index is ${rugIndex.toFixed(2)} (${isSerialRugger ? "FLAGGED: Serial Rugger" : "Clean History"}).`,
+    creator_analysis: isUnknownCreator
+      ? "Deployer signature unresolved (sponsored transaction / fee-payer proxy). Creator history unverified."
+      : `Deployer wallet ${creatorShort} has launched ${pastLaunches} token(s). Dev initial purchase was ${devBuySol.toFixed(2)} SOL. Serial Rug Index is ${rugIndex.toFixed(2)} (${isSerialRugger ? "FLAGGED: Serial Launcher" : "No Prior Flags Recorded"}).`,
     capital_structure_analysis: `Top 5 wallets control ${top5SharePct.toFixed(1)}% of net capital. Herfindahl-Hirschman Index (HHI) is ${sumSquaredShares.toFixed(3)} (${isWhaleConcentrated ? "High Concentration Risk" : "Broad Organic Decentralization"}). Total gross inflow is ${grossBuySol.toFixed(2)} SOL against ${grossSellSol.toFixed(2)} SOL sell outflow.`,
     sybil_threat_analysis: isBundledLaunch
       ? `🚨 Sub-second slot forensics detected ${sameSlotWallets.length} bundled sniper wallets co-executing in identical blocks. Insider ring commands ${insiderHoldingPct.toFixed(1)}% of curve liquidity.`
-      : "✅ Zero same-slot bot bundling detected. Wallet entry timestamps demonstrate natural organic latency.",
-    liquidity_trajectory: `Bonding curve progress is at ${curveProgress.toFixed(1)}% towards the 85.0 SOL Raydium threshold. Requires ${solToGraduation.toFixed(2)} SOL additional net capital to graduate to automated DEX liquidity.`,
+      : "✅ Zero same-slot bot bundling detected. Wallet entry timestamps demonstrate natural latency distribution.",
+    liquidity_trajectory: `Bonding curve progress is at ${curveProgress.toFixed(1)}% (${curveReserveSol.toFixed(2)} / 85.00 SOL). Requires ${solToGraduation.toFixed(2)} SOL additional capital to reach the PumpSwap migration threshold.`,
     strategy_recommendation: {
-      suggested_action: memoVerdict === "ACCUMULATE" ? "Aggressive Inflow Scalp with trailing take-profit" : memoVerdict === "AVOID_RUG" ? "Immediate Avoidance / Do Not Deploy Capital" : "Micro-size conviction test only",
+      suggested_action: memoVerdict === "ACCUMULATE"
+        ? "Decentralized order flow observed; monitor curve progression"
+        : memoVerdict === "AVOID_RUG"
+        ? "Elevated risk flags active; caution advised"
+        : isBundledLaunch
+        ? `Bundled insider activity (${insiderHoldingPct.toFixed(1)}% inflow); monitor exit transactions`
+        : "Early curve discovery; observe trade volume",
       max_slippage: safeSlippagePct + "%",
-      priority_tip: recommendedTipSol + " SOL (Jito Anti-MEV)",
+      priority_tip: recommendedTipSol + " SOL (Heuristic Jito Tip)",
       risk_level: riskLevel,
     },
   };
@@ -497,7 +586,7 @@ export async function getDetailedTokenInspection(
     symbol,
     creator,
     creator_short: creatorShort,
-    creator_solscan: `https://solscan.io/account/${creator}`,
+    creator_solscan: isUnknownCreator ? `https://solscan.io/token/${mint}` : `https://solscan.io/account/${creator}`,
     token_solscan: `https://solscan.io/token/${mint}`,
     bonding_curve: bondingCurve,
     socials,
@@ -505,12 +594,16 @@ export async function getDetailedTokenInspection(
     created_at: createdAt,
 
     net_sol_deployed: Number(netSol.toFixed(2)),
+    curve_reserve_sol: Number(curveReserveSol.toFixed(2)),
     total_inflow_sol: Number(grossBuySol.toFixed(2)),
     total_outflow_sol: Number(grossSellSol.toFixed(2)),
     curve_progress_pct: Number(curveProgress.toFixed(1)),
     sol_to_graduation: Number(solToGraduation.toFixed(2)),
     estimated_mcap_usd: estimatedMcapUsd,
     price_usd: priceUsd,
+    mcap_source: mcapSource,
+    sol_price_usd: solUsd,
+    sol_price_is_live: solPriceInfo.is_live,
     total_trades: totalTrades,
     unique_investors: uniqueInvestors,
 
@@ -519,11 +612,12 @@ export async function getDetailedTokenInspection(
       dev_buy_sol: Number(devBuySol.toFixed(2)),
       dev_holds_pct: grossBuySol > 0 ? Number(((devBuySol / grossBuySol) * 100).toFixed(1)) : 0,
       is_serial_rugger: isSerialRugger,
-      is_alpha_creator: isAlphaCreator,
+      is_alpha_creator: false,
       rug_index: Number(rugIndex.toFixed(2)),
     },
 
     investors,
+    timeline_points: timelinePoints,
     top5_share_pct: Number(top5SharePct.toFixed(1)),
     hhi_score: Number(sumSquaredShares.toFixed(3)),
     is_whale_concentrated: isWhaleConcentrated,
@@ -555,7 +649,7 @@ export async function getDetailedTokenInspection(
 
 async function fetchDexScreenerData(
   mint: string
-): Promise<{ priceUsd: number | null; marketCap: number | null } | null> {
+): Promise<{ priceUsd: number | null; marketCap: number | null; dexId?: string; pairAddress?: string; liquidityUsd?: number } | null> {
   try {
     const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${mint}`, {
       headers: { Accept: "application/json", "User-Agent": "CF-Pump-Screener/1.0" },
@@ -568,8 +662,51 @@ async function fetchDexScreenerData(
     return {
       priceUsd: pair.priceUsd ? Number(pair.priceUsd) : null,
       marketCap: pair.marketCap || pair.fdv ? Number(pair.marketCap || pair.fdv) : null,
+      dexId: pair.dexId,
+      pairAddress: pair.pairAddress,
+      liquidityUsd: pair.liquidity?.usd ? Number(pair.liquidity.usd) : 0,
     };
   } catch {
     return null;
   }
+}
+
+let cachedSolPrice: { price: number; timestamp: number } = { price: 85.00, timestamp: 0 };
+
+export async function fetchLiveSolPrice(): Promise<{ price: number; is_live: boolean; updated_at: number }> {
+  const now = Date.now();
+  if (now - cachedSolPrice.timestamp < 60_000 && cachedSolPrice.timestamp > 0) {
+    return { price: cachedSolPrice.price, is_live: true, updated_at: cachedSolPrice.timestamp };
+  }
+  try {
+    const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT", {
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(1500),
+    });
+    if (res.ok) {
+      const data = await res.json<{ price?: string }>();
+      const p = parseFloat(data.price || "");
+      if (!isNaN(p) && p > 10 && p < 2000) {
+        cachedSolPrice = { price: Number(p.toFixed(2)), timestamp: now };
+        return { price: cachedSolPrice.price, is_live: true, updated_at: now };
+      }
+    }
+  } catch {
+    // Fallback to DexScreener Wrapped SOL
+    try {
+      const dRes = await fetch("https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112", {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(1500),
+      });
+      if (dRes.ok) {
+        const dJson = await dRes.json<any>();
+        const p = parseFloat(dJson.pairs?.[0]?.priceUsd || "");
+        if (!isNaN(p) && p > 10 && p < 2000) {
+          cachedSolPrice = { price: Number(p.toFixed(2)), timestamp: now };
+          return { price: cachedSolPrice.price, is_live: true, updated_at: now };
+        }
+      }
+    } catch {}
+  }
+  return { price: cachedSolPrice.price, is_live: cachedSolPrice.timestamp > 0, updated_at: cachedSolPrice.timestamp || now };
 }

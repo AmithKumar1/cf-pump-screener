@@ -2,6 +2,21 @@ import { decodeBase58 } from "./base58.ts";
 import type { TradePoint } from "./types.ts";
 
 export const PUMP_PROGRAM_ID = "6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P";
+export const PUMP_MAYHEM_PROGRAM_ID = "MAyhSmzXzV1pTf7LsNkrNwkWKTo4ougAJ1PPg47MD4e";
+export const PUMPSWAP_PROGRAM_ID = "pAMMBay6oceH9fJKBRHGP5D4bD4sWpmSwMn52FMfXEA";
+export const PUMP_FEE_PROGRAM_ID = "pfeeUxB6jkeY1Hxd7CsFCAjcbHA9rWtchMGdZ6VojVZ";
+
+export const PUMP_CORE_PROGRAM_IDS = new Set<string>([
+  PUMP_PROGRAM_ID,
+  PUMP_MAYHEM_PROGRAM_ID,
+]);
+
+export const PUMP_PROGRAM_IDS = new Set<string>([
+  PUMP_PROGRAM_ID,
+  PUMP_MAYHEM_PROGRAM_ID,
+  PUMPSWAP_PROGRAM_ID,
+  PUMP_FEE_PROGRAM_ID,
+]);
 export const CREATE_V2_DISCRIMINATOR = "d6904cec5f8b31b4";
 export const LEGACY_CREATE_DISCRIMINATOR = "181ec828051c0777";
 
@@ -61,7 +76,7 @@ export function parseHeliusCreate(tx: any): ParsedCreateEvent | null {
   let targetIx: any = null;
 
   for (const ix of instructions) {
-    if (ix && ix.programId === PUMP_PROGRAM_ID && ix.data) {
+    if (ix && PUMP_CORE_PROGRAM_IDS.has(ix.programId) && ix.data) {
       targetIx = ix;
       break;
     }
@@ -174,6 +189,36 @@ export function parseHeliusCreate(tx: any): ParsedCreateEvent | null {
 }
 
 /**
+ * Verify whether a Helius Enhanced transaction interacts with genuine Pump.fun or Mayhem programs.
+ * Note: Drops unverified mint.endsWith("pump") shortcut to ensure deterministic program-level verification.
+ */
+export function isPumpFunTransaction(tx: any, mint?: string): boolean {
+  if (!tx || typeof tx !== "object") return false;
+
+  // 1. Explicit Helius source tag for pump.fun or pump.swap
+  if (tx.source === "PUMP_FUN" || tx.source === "PUMP_SWAP") return true;
+
+  // 2. Direct execution on Pump Bonding Curve, Mayhem Mode, PumpSwap AMM, or Pump Fee
+  const instructions = Array.isArray(tx.instructions) ? tx.instructions : [];
+  for (const ix of instructions) {
+    if (ix?.programId && PUMP_PROGRAM_IDS.has(ix.programId)) return true;
+    if (Array.isArray(ix?.innerInstructions)) {
+      for (const inner of ix.innerInstructions) {
+        if (inner?.programId && PUMP_PROGRAM_IDS.has(inner.programId)) return true;
+      }
+    }
+  }
+
+  // 3. Inspect accountData for Pump Program IDs
+  const accountData = Array.isArray(tx.accountData) ? tx.accountData : [];
+  for (const acc of accountData) {
+    if (acc?.account && PUMP_PROGRAM_IDS.has(acc.account)) return true;
+  }
+
+  return false;
+}
+
+/**
  * Parse Helius Enhanced Transaction for a swap event.
  */
 export function parseHeliusSwap(tx: any): TradePoint | null {
@@ -216,6 +261,11 @@ export function parseHeliusSwap(tx: any): TradePoint | null {
   }
 
   if (!mint) return null;
+
+  // Enforce pump.fun program verification: reject non-pump swaps (e.g. Raydium, Orca, external DEX)
+  if (!isPumpFunTransaction(tx, mint)) {
+    return null;
+  }
 
   return {
     signature,

@@ -5,7 +5,10 @@ import path from "node:path";
 import {
   parseHeliusCreate,
   parseHeliusSwap,
+  isPumpFunTransaction,
   PUMP_PROGRAM_ID,
+  PUMPSWAP_PROGRAM_ID,
+  PUMP_FEE_PROGRAM_ID,
   CREATE_V2_DISCRIMINATOR,
   LEGACY_CREATE_DISCRIMINATOR,
 } from "../src/parser.ts";
@@ -208,6 +211,54 @@ describe("Helius Enhanced Transaction Parser", () => {
     assert.equal(parsed.kind, "invalid");
     assert.ok(parsed.error?.includes("String payload exceeds buffer length"));
   });
+
+  it("Transaction Gate: isPumpFunTransaction accurately verifies Bonding Curve, PumpSwap AMM, and rejects Non-Pump Swaps", () => {
+    // 1. Valid Bonding Curve Program instruction
+    const bondingCurveTx = {
+      instructions: [{ programId: PUMP_PROGRAM_ID, data: "test" }],
+    };
+    assert.equal(isPumpFunTransaction(bondingCurveTx, "any_mint"), true);
+
+    // 2. Valid PumpSwap AMM Program instruction
+    const pumpSwapTx = {
+      instructions: [{ programId: PUMPSWAP_PROGRAM_ID, data: "test" }],
+    };
+    assert.equal(isPumpFunTransaction(pumpSwapTx, "any_mint"), true);
+
+    // 3. Valid Pump Fee Program instruction
+    const pumpFeeTx = {
+      instructions: [{ programId: PUMP_FEE_PROGRAM_ID, data: "test" }],
+    };
+    assert.equal(isPumpFunTransaction(pumpFeeTx, "any_mint"), true);
+
+    // 4. Valid source tag
+    assert.equal(isPumpFunTransaction({ source: "PUMP_FUN" }), true);
+    assert.equal(isPumpFunTransaction({ source: "PUMP_SWAP" }), true);
+
+    // 5. Valid innerInstruction match
+    const innerTx = {
+      instructions: [
+        {
+          programId: "11111111111111111111111111111111",
+          innerInstructions: [{ programId: PUMPSWAP_PROGRAM_ID }],
+        },
+      ],
+    };
+    assert.equal(isPumpFunTransaction(innerTx), true);
+
+    // 6. Non-pump swap (e.g. Raydium CPMM / NVDAx $XSC9QV)
+    const nonPumpTx = {
+      source: "RAYDIUM",
+      instructions: [
+        { programId: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" },
+        { programId: "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA" },
+      ],
+      accountData: [
+        { account: "675kPX9MHTjS2zt1qfr1NYHuzeLXfQM9H24wFSUt1Mp8" },
+      ],
+    };
+    assert.equal(isPumpFunTransaction(nonPumpTx, "Xsc9qvGR1efVDFGLrVsmkzv3qi45LTBjeUKSPmx9qEh"), false);
+  });
 });
 
 describe("Defensive Off-Chain Metadata Fetcher", () => {
@@ -292,6 +343,76 @@ describe("Defensive Off-Chain Metadata Fetcher", () => {
       assert.equal(res.telegram, "https://t.me/kimcoin");
       assert.equal(res.website, "https://kim.io");
       assert.equal(res.description, "Official community meme token");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("fetchTokenMetadata follows safe redirects up to 3 hops for public HTTPS targets", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const calls: string[] = [];
+      globalThis.fetch = async (url: any) => {
+        calls.push(String(url));
+        if (String(url) === "https://short.io/pump-meta") {
+          return new Response(null, {
+            status: 301,
+            headers: { location: "https://redirected.io/final.json" },
+          });
+        }
+        return new Response(JSON.stringify({ twitter: "https://x.com/redirected_ok" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const res = await fetchTokenMetadata("https://short.io/pump-meta");
+      assert.equal(res.success, true);
+      assert.equal(res.twitter, "https://x.com/redirected_ok");
+      assert.equal(calls.length, 2);
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("fetchTokenMetadata strictly blocks redirects to private / internal hosts (SSRF)", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      globalThis.fetch = async () => {
+        return new Response(null, {
+          status: 302,
+          headers: { location: "http://127.0.0.1/admin/metadata.json" },
+        });
+      };
+
+      const res = await fetchTokenMetadata("https://safe-looking.io/meta");
+      assert.equal(res.success, false);
+      assert.equal(res.error, "REDIRECT_TO_UNSAFE_HOST");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("fetchTokenMetadata falls back from primary to secondary IPFS gateway on HTTP 429", async () => {
+    const originalFetch = globalThis.fetch;
+    try {
+      const attemptedGateways: string[] = [];
+      globalThis.fetch = async (url: any) => {
+        attemptedGateways.push(String(url));
+        if (String(url).includes("filebase.io")) {
+          return new Response("Too Many Requests", { status: 429 });
+        }
+        return new Response(JSON.stringify({ twitter: "https://x.com/fallback_success" }), {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        });
+      };
+
+      const res = await fetchTokenMetadata("https://ipfs.io/ipfs/QmZ5B2og1LYaWSxVYV7wzRpRihZLvfd8gaSx8pa9zM1SjF");
+      assert.equal(res.success, true);
+      assert.equal(res.twitter, "https://x.com/fallback_success");
+      assert.ok(attemptedGateways.some(u => u.includes("pinata.cloud")));
+      assert.ok(attemptedGateways.some(u => u.includes("filebase.io")));
     } finally {
       globalThis.fetch = originalFetch;
     }
