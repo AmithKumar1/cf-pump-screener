@@ -657,5 +657,9 @@ describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", ()
     assert.ok(report.sniper_links.bullx.includes("MINT123"));
     assert.ok(report.sniper_links.gmgn.includes("MINT123"));
     assert.ok(report.sniper_links.solscan_token.includes("MINT123"));
+    assert.ok(report.sybil_intelligence);
+    assert.ok(report.sybil_intelligence.bubble_graph.nodes.length >= 1);
+    assert.ok(report.jito_execution);
+    assert.ok(report.jito_execution.recommended_tip_sol > 0);
   });
 });

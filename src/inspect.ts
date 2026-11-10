@@ -15,6 +15,42 @@ export interface InvestorRecord {
   trades_count: number;
 }
 
+export interface SybilBubbleNode {
+  id: string;
+  short: string;
+  role: "CREATOR" | "BUNDLED_INSIDER" | "ALPHA_WHALE" | "WHALE" | "INVESTOR";
+  color: string;
+  sol: number;
+  share_pct: number;
+}
+
+export interface SybilBubbleLink {
+  source: string;
+  target: string;
+  type: "bundled_cluster" | "capital_inflow";
+}
+
+export interface SybilIntelligence {
+  is_bundled_launch: boolean;
+  same_slot_wallets: string[];
+  insider_holding_pct: number;
+  cluster_count: number;
+  cluster_verdict: string;
+  bubble_graph: {
+    nodes: SybilBubbleNode[];
+    links: SybilBubbleLink[];
+  };
+}
+
+export interface JitoExecutionConfig {
+  recommended_tip_sol: number;
+  mev_risk_level: "LOW" | "MEDIUM" | "HIGH";
+  safe_slippage_pct: number;
+  photon_tip_url: string;
+  bullx_tip_url: string;
+  gmgn_tip_url: string;
+}
+
 export interface TokenInspectionReport {
   mint: string;
   name: string;
@@ -68,6 +104,10 @@ export interface TokenInspectionReport {
     freeze_authority_revoked: boolean;
     risks: string[];
   };
+
+  // Advanced Quant & Institutional Intelligence
+  sybil_intelligence: SybilIntelligence;
+  jito_execution: JitoExecutionConfig;
 
   // 1-Click Fast Sniper Links
   sniper_links: {
@@ -144,7 +184,52 @@ export async function getDetailedTokenInspection(
   const grossSellSol = Number(totalsRow?.gross_sell_sol || 0);
   const netSol = Number(totalsRow?.net_sol || 0);
 
-  // 4. Top Investors Breakdown
+  // 4. Early Trades for Sybil & Co-Execution Clustering
+  const earlyTradesRows = await env.DB.prepare(
+    `SELECT trader, sol_amount, block_time
+     FROM trades
+     WHERE mint = ? AND LOWER(side) = 'buy'
+     ORDER BY block_time ASC
+     LIMIT 25`
+  )
+    .bind(mint)
+    .all<any>();
+
+  const timeMap = new Map<number, string[]>();
+  const sameSlotSet = new Set<string>();
+  let earlyClusterSol = 0;
+
+  for (const t of earlyTradesRows.results || []) {
+    const bTime = Number(t.block_time || 0);
+    if (!bTime) continue;
+    if (!timeMap.has(bTime)) {
+      timeMap.set(bTime, []);
+    }
+    const list = timeMap.get(bTime)!;
+    list.push(t.trader);
+    if (list.length >= 2) {
+      for (const w of list) {
+        sameSlotSet.add(w);
+      }
+    }
+  }
+
+  for (const t of earlyTradesRows.results || []) {
+    if (sameSlotSet.has(t.trader)) {
+      earlyClusterSol += Number(t.sol_amount || 0);
+    }
+  }
+
+  const sameSlotWallets = Array.from(sameSlotSet);
+  const insiderHoldingPct = grossBuySol > 0 ? (earlyClusterSol / grossBuySol) * 100 : 0;
+  const isBundledLaunch = sameSlotWallets.length >= 3 || insiderHoldingPct > 35;
+  const clusterVerdict = isBundledLaunch
+    ? "❌ High Sybil Co-Execution (Bundled Snipers)"
+    : sameSlotWallets.length > 0
+    ? "⚠️ Moderate Co-Execution (Co-Timed Orders)"
+    : "✅ Organic Decentralized Order Flow";
+
+  // 5. Top Investors Breakdown
   const topRows = await env.DB.prepare(
     `SELECT
        trader,
@@ -168,12 +253,28 @@ export async function getDetailedTokenInspection(
 
   const totalPositiveSol = Math.max(0.01, grossBuySol);
 
+  const bubbleNodes: SybilBubbleNode[] = [];
+  const bubbleLinks: SybilBubbleLink[] = [];
+
+  // Creator bubble node
+  const creatorShort = creator.slice(0, 4) + "..." + creator.slice(-4);
+  bubbleNodes.push({
+    id: creator,
+    short: creatorShort,
+    role: "CREATOR",
+    color: "#f59e0b",
+    sol: 0, // updated below once dev buy found
+    share_pct: 0,
+  });
+
   const investors: InvestorRecord[] = (topRows.results || []).map((row, idx) => {
     const traderNet = Number(row.net_sol || 0);
     const traderBuy = Number(row.buy_sol || 0);
     const isDev = row.trader === creator;
     if (isDev) {
       devBuySol = traderBuy;
+      bubbleNodes[0].sol = devBuySol;
+      bubbleNodes[0].share_pct = Number(((devBuySol / totalPositiveSol) * 100).toFixed(1));
     }
 
     if (idx < 5 && traderNet > 0) {
@@ -184,21 +285,56 @@ export async function getDetailedTokenInspection(
     const fraction = traderBuy / totalPositiveSol;
     sumSquaredShares += fraction * fraction;
 
+    const isSameSlot = sameSlotSet.has(row.trader) && !isDev;
     let tag = "⚡ Early Buyer";
     let tagClass = "badge-muted";
+    let role: "CREATOR" | "BUNDLED_INSIDER" | "ALPHA_WHALE" | "WHALE" | "INVESTOR" = "INVESTOR";
+    let nodeColor = "#00d2ff";
 
     if (isDev) {
       tag = "👨‍💻 Dev Deployer";
       tagClass = "badge-yellow";
+      role = "CREATOR";
+      nodeColor = "#f59e0b";
+    } else if (isSameSlot) {
+      tag = "🤖 Bundled Insider";
+      tagClass = "badge-red";
+      role = "BUNDLED_INSIDER";
+      nodeColor = "#ef4444";
     } else if (KNOWN_ALPHA_WALLETS.has(row.trader)) {
       tag = "🎯 Smart Alpha Whale";
       tagClass = "badge-purple";
-    } else if (traderNet >= 3.0) {
+      role = "ALPHA_WHALE";
+      nodeColor = "#a855f7";
+    } else if (traderNet >= 2.0) {
       tag = "🐋 Conviction Whale";
       tagClass = "badge-green";
+      role = "WHALE";
+      nodeColor = "#10b981";
     } else if (traderNet <= 0 && row.trades_count > 1) {
       tag = "💨 Scalper (Exited)";
       tagClass = "badge-red";
+      role = "INVESTOR";
+      nodeColor = "#64748b";
+    }
+
+    // Add node and link for bubble graph if not dev
+    if (!isDev) {
+      const shortAddr = row.trader.slice(0, 4) + "..." + row.trader.slice(-4);
+      bubbleNodes.push({
+        id: row.trader,
+        short: shortAddr,
+        role,
+        color: nodeColor,
+        sol: Number(traderBuy.toFixed(2)),
+        share_pct: Number(sharePct.toFixed(1)),
+      });
+
+      bubbleLinks.push({
+        source: creator,
+        target: row.trader,
+        type: isSameSlot ? "bundled_cluster" : "capital_inflow",
+      });
     }
 
     return {
@@ -218,7 +354,7 @@ export async function getDetailedTokenInspection(
   const top5SharePct = netSol > 0 ? Math.min(100, (top5NetSol / netSol) * 100) : 0;
   const isWhaleConcentrated = top5SharePct > 65 || sumSquaredShares > 0.25;
 
-  // 5. Parallel live data: RugCheck & DexScreener
+  // 6. Parallel live data: RugCheck & DexScreener
   const [rugCheck, dexData] = await Promise.all([
     fetchRugCheck(mint),
     fetchDexScreenerData(mint),
@@ -233,12 +369,48 @@ export async function getDetailedTokenInspection(
   let estimatedMcapUsd = dexData?.marketCap || Math.round(5000 + netSol * 180);
   let priceUsd = dexData?.priceUsd || null;
 
+  // 7. Jito Anti-MEV Tip Recommendation
+  let mevRiskLevel: "LOW" | "MEDIUM" | "HIGH" = "LOW";
+  let recommendedTipSol = 0.003;
+  let safeSlippagePct = 10;
+
+  if (curveProgress > 25 || grossBuySol > 15 || isBundledLaunch) {
+    mevRiskLevel = "HIGH";
+    recommendedTipSol = 0.015;
+    safeSlippagePct = 20;
+  } else if (grossBuySol > 5 || top5SharePct > 50) {
+    mevRiskLevel = "MEDIUM";
+    recommendedTipSol = 0.007;
+    safeSlippagePct = 15;
+  }
+
+  const jitoExecution: JitoExecutionConfig = {
+    recommended_tip_sol: recommendedTipSol,
+    mev_risk_level: mevRiskLevel,
+    safe_slippage_pct: safeSlippagePct,
+    photon_tip_url: `https://photon-sol.tinyastro.io/en/lp/${mint}`,
+    bullx_tip_url: `https://bullx.io/terminal?chainId=1399811149&address=${mint}`,
+    gmgn_tip_url: `https://gmgn.ai/sol/token/${mint}`,
+  };
+
+  const sybilIntelligence: SybilIntelligence = {
+    is_bundled_launch: isBundledLaunch,
+    same_slot_wallets: sameSlotWallets,
+    insider_holding_pct: Number(insiderHoldingPct.toFixed(1)),
+    cluster_count: sameSlotWallets.length,
+    cluster_verdict: clusterVerdict,
+    bubble_graph: {
+      nodes: bubbleNodes,
+      links: bubbleLinks,
+    },
+  };
+
   return {
     mint,
     name,
     symbol,
     creator,
-    creator_short: creator.slice(0, 4) + "..." + creator.slice(-4),
+    creator_short: creatorShort,
     creator_solscan: `https://solscan.io/account/${creator}`,
     token_solscan: `https://solscan.io/token/${mint}`,
     bonding_curve: bondingCurve,
@@ -278,6 +450,9 @@ export async function getDetailedTokenInspection(
       freeze_authority_revoked: true,
       risks: rugCheck.risks,
     },
+
+    sybil_intelligence: sybilIntelligence,
+    jito_execution: jitoExecution,
 
     sniper_links: {
       photon: `https://photon-sol.tinyastro.io/en/lp/${mint}`,
