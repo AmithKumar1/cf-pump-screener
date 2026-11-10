@@ -85,7 +85,10 @@ export default {
     // Live Visual Dashboard
     if (url.pathname === "/dashboard" || (url.pathname === "/" && request.headers.get("Accept")?.includes("text/html"))) {
       return new Response(renderDashboardHtml(), {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Cache-Control": "no-cache, no-store, must-revalidate",
+        },
       });
     }
 
