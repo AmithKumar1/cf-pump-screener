@@ -98,6 +98,7 @@ export default {
         const events = Array.isArray(body) ? body : [body];
         const dbStatements: D1PreparedStatement[] = [];
         const mintsToEvaluate = new Set<string>();
+        const createdMintsToResolve: Array<{ mint: string; uri: string }> = [];
 
         for (const item of events) {
           // 1. Primary: Helius Enhanced Create Transaction (CreateV2)
@@ -120,7 +121,7 @@ export default {
               )
             );
             if (heliusCreate.uri) {
-              ctx.waitUntil(resolveMetadataForToken(heliusCreate.mint, heliusCreate.uri, env));
+              createdMintsToResolve.push({ mint: heliusCreate.mint, uri: heliusCreate.uri });
             }
             continue;
           }
@@ -196,6 +197,11 @@ export default {
         // Execute all database insertions in a single batch
         if (dbStatements.length > 0) {
           await env.DB.batch(dbStatements);
+        }
+
+        // Asynchronously resolve metadata and evaluate Stage 1 verified launch alerts
+        for (const item of createdMintsToResolve) {
+          ctx.waitUntil(resolveMetadataForToken(item.mint, item.uri, env));
         }
 
         // Evaluate all modified mints in parallel background tasks
