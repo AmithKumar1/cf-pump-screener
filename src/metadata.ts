@@ -52,7 +52,13 @@ export function isSafeMetadataUrl(rawUrl: string): boolean {
  * - Safe text extraction
  */
 export async function fetchTokenMetadata(uri: string): Promise<ParsedSocials> {
-  if (!uri || !isSafeMetadataUrl(uri)) {
+  // Normalize deprecated ipfs.io gateway to high-performance Pinata IPFS gateway
+  let targetUri = uri;
+  if (targetUri.includes("ipfs.io/ipfs/")) {
+    targetUri = targetUri.replace("https://ipfs.io/ipfs/", "https://gateway.pinata.cloud/ipfs/");
+  }
+
+  if (!targetUri || !isSafeMetadataUrl(targetUri)) {
     return {
       success: false,
       isAvailable: false,
@@ -63,7 +69,7 @@ export async function fetchTokenMetadata(uri: string): Promise<ParsedSocials> {
   const MAX_BYTES = 15360; // 15 KB cap
 
   try {
-    const res = await fetch(uri, {
+    const res = await fetch(targetUri, {
       method: "GET",
       headers: {
         Accept: "application/json",
