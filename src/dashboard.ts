@@ -1,9 +1,12 @@
 /**
  * Institutional Bloomberg-Grade Live Radar, Whales Forensics & Execution Cockpit.
  * Ported & Enhanced with Quantitative Technologies from E:\QRML:
- * - Ultra-dense Bloomberg BLP Signature Aesthetic (Amber #ff9900 & Cyan #00ffff)
+ * - Ultra-dense Bloomberg BLP Signature Aesthetic (Amber #ff9900, Ice #00ffff, Matrix #00ff66)
  * - Zero Space Wastage: Viewport-fitted 100vh Desktop Workstation architecture
- * - Unified 2-Row Top HUD (Macro Ticker + Telemetry KPIs + Quant Hotkeys in ~50px)
+ * - Unified 2-Row Top HUD with Live Edge Latency Ping & Theme Switcher [T]
+ * - Instant Stream Search & Filter Chips (ALL, VERIFIED, ALERTS, CLEAN DEV)
+ * - 1-Click Size Presets (0.5 SOL, 1.0 SOL, 2.0 SOL) & Jito Anti-MEV Gateway
+ * - One-Click Quant Dossier Exporter (DuckDB/QRML-ready JSON)
  * - Non-collapsing 3-Pane Cockpit Grid (Left: Stream | Center: Quant Workstation | Right: Signals)
  * - Multi-Tab Center Command Deck:
  *     1. 🕸️ Arkham Sybil Cluster Canvas (Responsive orbital node radar)
@@ -11,9 +14,8 @@
  *     3. ⚡ HFT Order Book Imbalance (OBI) & Micro-Price Depth Radar
  *     4. 📊 Alpha-158 Quantitative Factor Matrix
  *     5. 👥 Whales & Allocations Table
- * - Native Web Audio API Acoustic Synthesizer (Sonar pings & de-escalation tones)
- * - Jito Anti-MEV Tip Recommendation & 1-Click Fast Sniper Execution Dock
- * - Quant Hotkeys: [SPACE] Deep Inspect, [P] Photon, [B] BullX, [G] GMGN, [M] Mute, [V] View, [1-5] Tabs
+ * - Native Web Audio API Acoustic Synthesizer (Sonar pings & tactile clicks)
+ * - Quant Hotkeys: [SPACE] Deep Inspect, [P] Photon, [B] BullX, [G] GMGN, [M] Mute, [T] Theme, [V] View, [1-5] Tabs
  */
 
 export function renderDashboardHtml(): string {
@@ -42,6 +44,19 @@ export function renderDashboardHtml(): string {
       --gold: #fbbf24;
       --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
+    body.theme-ice {
+      --bg: #03060a;
+      --card-bg: #060b10;
+      --bbg-amber: #00ffff;
+      --accent: #38bdf8;
+    }
+    body.theme-matrix {
+      --bg: #020804;
+      --card-bg: #051007;
+      --bbg-amber: #00ff66;
+      --accent: #34d399;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html, body {
       height: 100vh;
@@ -119,7 +134,7 @@ export function renderDashboardHtml(): string {
     .top-controls {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       white-space: nowrap;
     }
 
@@ -144,12 +159,12 @@ export function renderDashboardHtml(): string {
     .telemetry-pills {
       display: flex;
       align-items: center;
-      gap: 10px;
+      gap: 8px;
     }
     .kpi-pill {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 3px;
       color: #94a3b8;
     }
     .kpi-pill b {
@@ -160,7 +175,7 @@ export function renderDashboardHtml(): string {
     .hotkeys-strip {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 5px;
       color: #64748b;
     }
     .hotkey-pill {
@@ -174,7 +189,7 @@ export function renderDashboardHtml(): string {
       margin-right: 2px;
     }
 
-    /* BLOOMBERG 3-PANE COCKPIT GRID (Zero space wastage) */
+    /* BLOOMBERG 3-PANE COCKPIT GRID */
     .cockpit-grid {
       display: grid;
       grid-template-columns: 260px minmax(420px, 1fr) 310px;
@@ -231,6 +246,26 @@ export function renderDashboardHtml(): string {
       padding: 4px;
       display: flex;
       flex-direction: column;
+    }
+
+    /* Stream Filter Chips */
+    .filter-chip {
+      background: #0d141b;
+      border: 1px solid #1a2533;
+      color: #94a3b8;
+      font-size: 8px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 2px;
+      cursor: pointer;
+      font-family: var(--font-mono);
+      transition: all 0.1s ease;
+    }
+    .filter-chip:hover { color: #fff; border-color: var(--accent); }
+    .filter-chip.active {
+      background: var(--bbg-amber);
+      color: #000;
+      border-color: var(--bbg-amber);
     }
 
     /* PANE 1: Solana Firehose Stream Items */
@@ -325,7 +360,8 @@ export function renderDashboardHtml(): string {
     }
     .exec-btns {
       display: flex;
-      gap: 4px;
+      gap: 3px;
+      align-items: center;
       flex-wrap: wrap;
     }
 
@@ -591,7 +627,7 @@ export function renderDashboardHtml(): string {
     <div class="brand">
       <div class="pulse-dot"></div>
       <span>BLOOMBERG // SOLANA QUANT COCKPIT</span>
-      <span class="badge badge-cyan" style="font-size:8px;">BLP v3.1</span>
+      <span class="badge badge-cyan" style="font-size:8px;">BLP v3.2</span>
     </div>
 
     <!-- Live Macro Ticker Tape (E:\QRML Port) -->
@@ -607,8 +643,10 @@ export function renderDashboardHtml(): string {
     </div>
 
     <div class="top-controls">
+      <span class="mono" id="latency-tag" style="color:var(--green);font-size:9px;">⚡ 18ms</span>
       <span class="mono" id="clock" style="color:#94a3b8;font-size:10px;">--:--:-- UTC</span>
-      <button class="btn" id="audio-toggle-btn" onclick="toggleAudio()" style="color:var(--green);">🔊 Audio: ARMED</button>
+      <button class="btn" id="theme-btn" onclick="cycleTheme()" title="Switch Color Theme [T]">🎨 Theme</button>
+      <button class="btn" id="audio-toggle-btn" onclick="toggleAudio()" style="color:var(--green);">🔊 Audio</button>
       <button class="btn" id="view-toggle-btn" onclick="toggleLayout()">🖥️ Cockpit</button>
       <a href="https://t.me/memcoinhome_bot" target="_blank" class="btn" style="background:#2481cc;border-color:#2481cc;color:#fff;">TG Bot ↗</a>
     </div>
@@ -623,11 +661,11 @@ export function renderDashboardHtml(): string {
       <span style="color:#202c38;">|</span>
       <span class="kpi-pill">INGESTION: <span class="badge badge-cyan" id="metric-rate">~60/min</span></span>
       <span style="color:#202c38;">|</span>
-      <span class="kpi-pill">VERIFIED SOCIALS: <span class="badge badge-green" id="metric-socials">--</span></span>
+      <span class="kpi-pill">VERIFIED: <span class="badge badge-green" id="metric-socials">--</span></span>
       <span style="color:#202c38;">|</span>
-      <span class="kpi-pill">RUGGERS BLOCKED: <span class="badge badge-red" id="metric-blocked">--</span></span>
+      <span class="kpi-pill">BLOCKED: <span class="badge badge-red" id="metric-blocked">--</span></span>
       <span style="color:#202c38;">|</span>
-      <span class="kpi-pill">SIGNALS DISPATCHED: <span class="badge badge-purple" id="metric-alerts">--</span></span>
+      <span class="kpi-pill">SIGNALS: <span class="badge badge-purple" id="metric-alerts">--</span></span>
     </div>
 
     <div class="hotkeys-strip">
@@ -637,6 +675,7 @@ export function renderDashboardHtml(): string {
       <span><span class="hotkey-pill">B</span>BullX</span>
       <span><span class="hotkey-pill">G</span>GMGN</span>
       <span><span class="hotkey-pill">M</span>Mute</span>
+      <span><span class="hotkey-pill">T</span>Theme</span>
       <span><span class="hotkey-pill">1-5</span>Tabs</span>
     </div>
   </div>
@@ -651,6 +690,18 @@ export function renderDashboardHtml(): string {
         <span>⚡ Solana Stream (L1 Ingest)</span>
         <span class="mono" style="font-size:8px;color:var(--accent);" id="p1-status">Live 3s</span>
       </div>
+
+      <!-- Real-Time Search & Category Filter Chips -->
+      <div style="padding:3px 5px;background:#070b0f;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:3px;">
+        <input type="text" id="stream-search" placeholder="🔍 Filter symbol or name..." oninput="handleStreamFilter()" style="background:#090e14;border:1px solid #16212d;border-radius:2px;color:var(--text);font-family:var(--font-mono);font-size:9px;padding:2px 5px;width:100%;outline:none;" />
+        <div style="display:flex;gap:3px;font-size:8px;">
+          <button class="filter-chip active" id="f-chip-all" onclick="setStreamFilter('all')">ALL</button>
+          <button class="filter-chip" id="f-chip-verified" onclick="setStreamFilter('verified')">VERIFIED</button>
+          <button class="filter-chip" id="f-chip-alerts" onclick="setStreamFilter('alerts')">ALERTS</button>
+          <button class="filter-chip" id="f-chip-clean" onclick="setStreamFilter('clean')">CLEAN DEV</button>
+        </div>
+      </div>
+
       <div class="pane-content" id="firehose-list" style="padding:2px;">
         <div style="text-align:center;padding:20px;color:var(--text-muted);">Syncing edge firehose...</div>
       </div>
@@ -665,7 +716,10 @@ export function renderDashboardHtml(): string {
             <span id="c-token-name">Select a Token</span>
             <span class="mono token-mint-link" id="c-token-mint" onclick="copyActiveMint()" title="Click to copy mint address">--</span>
           </div>
-          <button class="btn btn-inspect" onclick="openActiveTokenModal()">Full Inspect [Space] ↗</button>
+          <div style="display:flex;gap:4px;align-items:center;">
+            <button class="btn" onclick="exportQuantJson()" style="color:var(--accent);" title="Export DuckDB/QRML-ready JSON">📥 Export JSON</button>
+            <button class="btn btn-inspect" onclick="openActiveTokenModal()">Full Inspect [Space] ↗</button>
+          </div>
         </div>
 
         <div class="token-hero-curve">
@@ -677,12 +731,16 @@ export function renderDashboardHtml(): string {
           <div class="progress-bar-fill" id="c-curve-bar" style="width:0%;"></div>
         </div>
 
-        <!-- 1-Click Fast Sniper & Anti-MEV Dock -->
+        <!-- 1-Click Fast Sniper, Amount Presets & Anti-MEV Dock -->
         <div class="exec-dock">
           <div class="exec-btns">
             <a id="c-btn-photon" href="#" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;">⚡ Photon [P]</a>
             <a id="c-btn-bullx" href="#" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;">🎯 BullX [B]</a>
             <a id="c-btn-gmgn" href="#" target="_blank" class="btn" style="background:#00d2ff;color:#000;font-weight:700;">🤖 GMGN [G]</a>
+            <!-- Amount Presets -->
+            <a id="c-btn-size-05" href="#" target="_blank" class="btn" style="border-color:#2a3b4c;color:var(--gold);">⚡ 0.5 SOL</a>
+            <a id="c-btn-size-10" href="#" target="_blank" class="btn" style="border-color:#2a3b4c;color:var(--gold);">⚡ 1.0 SOL</a>
+            <a id="c-btn-size-20" href="#" target="_blank" class="btn" style="border-color:#2a3b4c;color:var(--gold);">⚡ 2.0 SOL</a>
             <a id="c-btn-dexs" href="#" target="_blank" class="btn">DexScreener</a>
             <a id="c-btn-pump" href="#" target="_blank" class="btn">Pump.fun</a>
           </div>
@@ -892,7 +950,8 @@ export function renderDashboardHtml(): string {
           <div style="font-size:14px;font-weight:800;color:var(--bbg-amber);" id="m-token-title">Loading Token...</div>
           <span id="m-token-badge" class="badge badge-purple">STAGE 1</span>
         </div>
-        <div style="display:flex;align-items:center;gap:6px;">
+        <div style="display:flex;align-items:center;gap:4px;">
+          <button class="btn" onclick="exportQuantJson()" style="color:var(--accent);">📥 JSON</button>
           <button class="btn" onclick="copyMintAddress()" id="copy-mint-btn">📋 Copy Mint</button>
           <a id="m-solscan-token-link" href="#" target="_blank" class="btn">Solscan ↗</a>
           <button class="btn" onclick="closeInspectModalDirect()" style="padding:2px 5px;">✕</button>
@@ -1061,6 +1120,10 @@ export function renderDashboardHtml(): string {
     let lastSeenMaxId = 0;
     let lastSeenAlertCount = 0;
     let currentCenterTab = "sybil";
+    let rawEventsList = [];
+    let streamFilterCategory = "all";
+    let streamSearchQuery = "";
+    let currentTheme = "amber";
 
     // Audio Synthesizer (Native Web Audio API)
     function initAudio() {
@@ -1085,10 +1148,10 @@ export function renderDashboardHtml(): string {
       const btn = document.getElementById("audio-toggle-btn");
       if (!btn) return;
       if (audioMuted) {
-        btn.innerText = "🔇 Audio: MUTED";
+        btn.innerText = "🔇 Muted";
         btn.style.color = "var(--text-muted)";
       } else {
-        btn.innerText = "🔊 Audio: ARMED";
+        btn.innerText = "🔊 Audio";
         btn.style.color = "var(--green)";
       }
     }
@@ -1113,6 +1176,45 @@ export function renderDashboardHtml(): string {
       } catch (_) {}
     }
 
+    function playTactileClick() {
+      if (audioMuted) return;
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(1800, now);
+        osc.frequency.exponentialRampToValueAtTime(400, now + 0.04);
+        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + 0.04);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start(now);
+        osc.stop(now + 0.04);
+      } catch (_) {}
+    }
+
+    // Theme Switcher (Amber, Ice, Matrix)
+    function cycleTheme() {
+      if (currentTheme === "amber") currentTheme = "ice";
+      else if (currentTheme === "ice") currentTheme = "matrix";
+      else currentTheme = "amber";
+      applyTheme();
+    }
+
+    function applyTheme() {
+      document.body.classList.remove("theme-ice", "theme-matrix");
+      if (currentTheme === "ice") document.body.classList.add("theme-ice");
+      if (currentTheme === "matrix") document.body.classList.add("theme-matrix");
+      document.getElementById("theme-btn").innerText = "🎨 " + currentTheme.toUpperCase();
+      localStorage.setItem("pumpradar_theme", currentTheme);
+      if (activeTokenReport) {
+        drawSybilCanvas("sybil-canvas", activeTokenReport.sybil_intelligence?.bubble_graph);
+      }
+    }
+
     // View Switcher (Bloomberg Cockpit vs Standard)
     function toggleLayout() {
       isStandardView = !isStandardView;
@@ -1128,8 +1230,78 @@ export function renderDashboardHtml(): string {
     setInterval(updateClock, 1000);
     updateClock();
 
+    // Stream Search & Category Filter
+    function handleStreamFilter() {
+      streamSearchQuery = (document.getElementById("stream-search").value || "").trim().toLowerCase();
+      renderFirehoseItems();
+    }
+
+    function setStreamFilter(category) {
+      streamFilterCategory = category;
+      ["all", "verified", "alerts", "clean"].forEach(c => {
+        const el = document.getElementById("f-chip-" + c);
+        if (el) el.classList.toggle("active", c === category);
+      });
+      renderFirehoseItems();
+    }
+
+    function renderFirehoseItems() {
+      const firehoseContainer = document.getElementById("firehose-list");
+      if (!rawEventsList || rawEventsList.length === 0) return;
+
+      const filtered = rawEventsList.filter(e => {
+        if (streamSearchQuery) {
+          const sym = (e.symbol || "").toLowerCase();
+          const nm = (e.name || "").toLowerCase();
+          const cr = (e.creator || "").toLowerCase();
+          if (!sym.includes(streamSearchQuery) && !nm.includes(streamSearchQuery) && !cr.includes(streamSearchQuery)) {
+            return false;
+          }
+        }
+        if (streamFilterCategory === "verified") {
+          return Boolean(e.twitter || e.telegram || e.website);
+        }
+        if (streamFilterCategory === "alerts") {
+          return Boolean(e.has_alert);
+        }
+        if (streamFilterCategory === "clean") {
+          return !e.is_serial_rugger;
+        }
+        return true;
+      });
+
+      if (filtered.length === 0) {
+        firehoseContainer.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);">No tokens match filter criteria</div>';
+        return;
+      }
+
+      firehoseContainer.innerHTML = filtered.map((e, idx) => {
+        const timeStr = e.time_utc ? e.time_utc.slice(11, 19) : "--:--:--";
+        const isActive = e.mint === activeTokenMint || (!activeTokenMint && idx === 0);
+        if (!activeTokenMint && idx === 0) {
+          selectActiveToken(e.mint);
+        }
+        let badge = '';
+        if (e.is_serial_rugger) badge = '<span class="badge badge-red">RUG</span>';
+        else if (e.has_alert) badge = '<span class="badge badge-purple">ALERT</span>';
+        else if (e.twitter || e.telegram || e.website) badge = '<span class="badge badge-green">VERIFIED</span>';
+
+        return \`<div class="firehose-item \${isActive ? 'active' : ''}" onclick="selectActiveToken('\${e.mint}')">
+          <div class="firehose-row1">
+            <span style="font-weight:700;color:var(--text);font-size:11px;">\${escapeHtml(e.symbol || 'PUMP')}</span>
+            <span class="mono" style="font-size:9px;color:var(--text-muted);">\${timeStr} \${badge}</span>
+          </div>
+          <div class="firehose-row2">
+            <span style="color:#94a3b8;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">\${escapeHtml(e.name || '')}</span>
+            <span class="mono">\${e.creator ? e.creator.slice(0, 4) + '...' + e.creator.slice(-4) : ''}</span>
+          </div>
+        </div>\`;
+      }).join("");
+    }
+
     // Center Tab Switcher
     function switchCenterTab(tabKey) {
+      playTactileClick();
       currentCenterTab = tabKey;
       ["sybil", "tv", "obi", "factors", "whales"].forEach(t => {
         const btn = document.getElementById("tab-btn-" + t);
@@ -1227,10 +1399,15 @@ export function renderDashboardHtml(): string {
     // Live Feed Poller
     async function fetchLiveFeed() {
       if (isPaused) return;
+      const t0 = performance.now();
       try {
         const res = await fetch("/api/live");
         if (!res.ok) return;
+        const latency = Math.round(performance.now() - t0);
+        document.getElementById("latency-tag").innerText = "⚡ " + latency + "ms";
+
         const data = await res.json();
+        rawEventsList = data.events || [];
 
         // Sound triggers
         if (lastSeenMaxId > 0 && data.stats.launches_logged > lastSeenMaxId) {
@@ -1252,31 +1429,7 @@ export function renderDashboardHtml(): string {
         document.getElementById("c-signals-count").innerText = (data.alerts?.length || 0) + " Active";
 
         // Render Cockpit Pane 1 (Firehose List)
-        const firehoseContainer = document.getElementById("firehose-list");
-        if (data.events && data.events.length > 0) {
-          firehoseContainer.innerHTML = data.events.map((e, idx) => {
-            const timeStr = e.time_utc ? e.time_utc.slice(11, 19) : "--:--:--";
-            const isActive = e.mint === activeTokenMint || (!activeTokenMint && idx === 0);
-            if (!activeTokenMint && idx === 0) {
-              selectActiveToken(e.mint);
-            }
-            let badge = '';
-            if (e.is_serial_rugger) badge = '<span class="badge badge-red">RUG</span>';
-            else if (e.has_alert) badge = '<span class="badge badge-purple">ALERT</span>';
-            else if (e.twitter || e.telegram || e.website) badge = '<span class="badge badge-green">VERIFIED</span>';
-
-            return \`<div class="firehose-item \${isActive ? 'active' : ''}" onclick="selectActiveToken('\${e.mint}')">
-              <div class="firehose-row1">
-                <span style="font-weight:700;color:var(--text);font-size:11px;">\${escapeHtml(e.symbol || 'PUMP')}</span>
-                <span class="mono" style="font-size:9px;color:var(--text-muted);">\${timeStr} \${badge}</span>
-              </div>
-              <div class="firehose-row2">
-                <span style="color:#94a3b8;max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">\${escapeHtml(e.name || '')}</span>
-                <span class="mono">\${e.creator ? e.creator.slice(0, 4) + '...' + e.creator.slice(-4) : ''}</span>
-              </div>
-            </div>\`;
-          }).join("");
-        }
+        renderFirehoseItems();
 
         // Render Cockpit Pane 3 (Alerts Feed)
         const cAlertsContainer = document.getElementById("c-alerts-list");
@@ -1380,6 +1533,7 @@ export function renderDashboardHtml(): string {
     // Select Active Token for Center Command Deck
     async function selectActiveToken(mint) {
       if (!mint || mint === activeTokenMint) return;
+      playTactileClick();
       activeTokenMint = mint;
 
       document.querySelectorAll(".firehose-item").forEach(el => {
@@ -1410,12 +1564,16 @@ export function renderDashboardHtml(): string {
         else if (report.jito_execution.mev_risk_level === "MEDIUM") jitoBadge.className = "badge badge-amber";
         else jitoBadge.className = "badge badge-green";
 
-        // Fast Execution Buttons
+        // Fast Execution Buttons & Size Presets
         document.getElementById("c-btn-photon").href = report.sniper_links.photon;
         document.getElementById("c-btn-bullx").href = report.sniper_links.bullx;
         document.getElementById("c-btn-gmgn").href = report.sniper_links.gmgn;
         document.getElementById("c-btn-dexs").href = report.sniper_links.dexscreener;
         document.getElementById("c-btn-pump").href = report.sniper_links.pumpfun;
+
+        document.getElementById("c-btn-size-05").href = report.sniper_links.photon + "?amount=0.5";
+        document.getElementById("c-btn-size-10").href = report.sniper_links.photon + "?amount=1.0";
+        document.getElementById("c-btn-size-20").href = report.sniper_links.photon + "?amount=2.0";
 
         // Render Active Tab Content
         if (currentCenterTab === "sybil") {
@@ -1510,6 +1668,18 @@ export function renderDashboardHtml(): string {
       });
     }
 
+    // Export Quant JSON Dossier (DuckDB / QRML ready)
+    function exportQuantJson() {
+      if (!activeTokenReport) return;
+      const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(activeTokenReport, null, 2));
+      const downloadAnchor = document.createElement('a');
+      downloadAnchor.setAttribute("href", dataStr);
+      downloadAnchor.setAttribute("download", "quant_report_" + (activeTokenReport.symbol || "token") + "_" + activeTokenReport.mint.slice(0, 8) + ".json");
+      document.body.appendChild(downloadAnchor);
+      downloadAnchor.click();
+      downloadAnchor.remove();
+    }
+
     // Modal Deep Inspector Controller
     async function inspectToken(mint) {
       if (!mint) return;
@@ -1528,6 +1698,7 @@ export function renderDashboardHtml(): string {
         const res = await fetch("/api/inspect?mint=" + encodeURIComponent(mint));
         if (!res.ok) throw new Error("HTTP " + res.status);
         const report = await res.json();
+        activeTokenReport = report;
 
         // Populate Header & Identity
         document.getElementById("m-token-title").innerHTML = \`\${escapeHtml(report.name)} <span style="color:var(--bbg-amber);">($\${escapeHtml(report.symbol)})</span>\`;
@@ -1669,6 +1840,8 @@ export function renderDashboardHtml(): string {
         if (activeTokenMint) window.open("https://gmgn.ai/sol/token/" + activeTokenMint, "_blank");
       } else if (e.key === "m" || e.key === "M") {
         toggleAudio();
+      } else if (e.key === "t" || e.key === "T") {
+        cycleTheme();
       } else if (e.key === "v" || e.key === "V") {
         toggleLayout();
       } else if (e.key === "1") {
@@ -1691,6 +1864,10 @@ export function renderDashboardHtml(): string {
     }
     if (localStorage.getItem("pumpradar_standard") === "1") {
       toggleLayout();
+    }
+    if (localStorage.getItem("pumpradar_theme")) {
+      currentTheme = localStorage.getItem("pumpradar_theme");
+      applyTheme();
     }
 
     // Unlock Web Audio on first user click
