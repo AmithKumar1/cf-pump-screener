@@ -1,5 +1,6 @@
 import type { Env } from "./types.ts";
 import { sendTelegramMessage, formatResearchCard } from "./telegram.ts";
+import { fetchRugCheck } from "./security.ts";
 
 /**
  * Health check watchdog executed by Cloudflare Cron Trigger (every minute).
@@ -128,6 +129,8 @@ export async function monitorActiveWatchlist(env: Env): Promise<void> {
           const gradProb = Math.min(0.95, (curveProgress / 100) * 1.2);
           const regime = curveProgress > 50 ? "MARKUP_FRENZY" : "ACCUMULATION";
 
+          const rugCheck = await fetchRugCheck(mint);
+
           const card = formatResearchCard(
             mint,
             symbol,
@@ -158,7 +161,10 @@ export async function monitorActiveWatchlist(env: Env): Promise<void> {
             0.0, // sri
             0,
             0,
-            0.05
+            0.05,
+            rugCheck.status,
+            rugCheck.score,
+            rugCheck.risks
           );
 
           await env.DB.prepare(

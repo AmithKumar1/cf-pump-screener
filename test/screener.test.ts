@@ -559,6 +559,11 @@ describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", ()
     assert.ok(card.includes("Elite Quant & Forensic Intelligence:"));
     assert.ok(card.includes("MEV Forensics:"));
     assert.ok(card.includes("Creator DNA: Serial Rug Index:"));
+    assert.ok(card.includes("Contract Security Audit (RugCheck):"));
+    assert.ok(card.includes("1-Click Fast Sniper Execution:"));
+    assert.ok(card.includes("Photon: https://photon-sol.tinyastro.io/en/lp/M1"));
+    assert.ok(card.includes("BullX: https://bullx.io/terminal?chainId=1399811149&address=M1"));
+    assert.ok(card.includes("GMGN: https://gmgn.ai/sol/token/M1"));
   });
 
   it("Stage 1 Pipeline: formatVerifiedLaunchCard correctly structures early creation intelligence", () => {
@@ -574,13 +579,19 @@ describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", ()
       0.15,
       false,
       0.0,
-      true
+      true,
+      "SAFE",
+      1,
+      []
     );
 
     assert.ok(card.includes("STAGE 1 [VERIFIED CREATION]"));
     assert.ok(card.includes("https://x.com/alice"));
     assert.ok(card.includes("Organic Viral Culture"));
     assert.ok(card.includes("Tracked Alpha Wallet"));
-    assert.ok(card.includes("https://dexscreener.com/solana/5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump"));
+    assert.ok(card.includes("RugCheck Security Audit: ✅ SAFE"));
+    assert.ok(card.includes("Photon: https://photon-sol.tinyastro.io/en/lp/5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump"));
+    assert.ok(card.includes("BullX: https://bullx.io/terminal?chainId=1399811149&address=5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump"));
+    assert.ok(card.includes("GMGN: https://gmgn.ai/sol/token/5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump"));
   });
 });

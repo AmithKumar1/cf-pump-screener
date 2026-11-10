@@ -321,8 +321,11 @@ export function renderDashboardHtml(): string {
               <td class="mono">\${Number(a.buyer_hhi || 0).toFixed(3)}</td>
               <td><span class="badge badge-green">\${escapeHtml(a.flags || 'SIGNAL')}</span></td>
               <td>
-                <a href="https://dexscreener.com/solana/\${a.mint}" target="_blank">DexScreener ↗</a> ·
-                <a href="https://pump.fun/coin/\${a.mint}" target="_blank">Pump.fun ↗</a>
+                <a href="https://photon-sol.tinyastro.io/en/lp/\${a.mint}" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;padding:3px 8px;margin-right:4px;">⚡ Photon</a>
+                <a href="https://bullx.io/terminal?chainId=1399811149&address=\${a.mint}" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;padding:3px 8px;margin-right:4px;">🎯 BullX</a>
+                <a href="https://gmgn.ai/sol/token/\${a.mint}" target="_blank" class="btn" style="background:#00d2ff;color:#000;font-weight:700;padding:3px 8px;margin-right:4px;">🤖 GMGN</a>
+                <a href="https://dexscreener.com/solana/\${a.mint}" target="_blank" class="btn" style="padding:3px 8px;margin-right:4px;">DexS ↗</a>
+                <a href="https://pump.fun/coin/\${a.mint}" target="_blank" class="btn" style="padding:3px 8px;">Pump ↗</a>
               </td>
             </tr>\`;
           }).join("");
@@ -369,7 +372,10 @@ export function renderDashboardHtml(): string {
               <td>\${socialsHtml}</td>
               <td>\${verdictBadge}</td>
               <td>
-                <a href="https://dexscreener.com/solana/\${e.mint}" target="_blank">Chart</a> ·
+                <a href="https://photon-sol.tinyastro.io/en/lp/\${e.mint}" target="_blank" style="color:#f59e0b;font-weight:700;">⚡Photon</a> ·
+                <a href="https://bullx.io/terminal?chainId=1399811149&address=\${e.mint}" target="_blank" style="color:#10b981;font-weight:700;">🎯BullX</a> ·
+                <a href="https://gmgn.ai/sol/token/\${e.mint}" target="_blank" style="color:#00d2ff;font-weight:700;">🤖GMGN</a> ·
+                <a href="https://dexscreener.com/solana/\${e.mint}" target="_blank">DexS</a> ·
                 <a href="https://pump.fun/coin/\${e.mint}" target="_blank">Pump</a>
               </td>
             </tr>\`;

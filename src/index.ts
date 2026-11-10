@@ -15,6 +15,7 @@ import { runHealthCheck, monitorActiveWatchlist } from "./monitor.ts";
 import { parseHeliusCreate, parseHeliusSwap } from "./parser.ts";
 import { fetchTokenMetadata } from "./metadata.ts";
 import { renderDashboardHtml } from "./dashboard.ts";
+import { fetchRugCheck } from "./security.ts";
 
 function extractAuthToken(request: Request, url: URL): string | null {
   // 1. Authorization header: "Bearer <token>" or raw token (Helius Authentication Header)
@@ -465,6 +466,9 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
             });
             if (MEM_CACHE.alerts.length > 10) MEM_CACHE.alerts.pop();
 
+            // Run automated RugCheck Security Audit
+            const rugCheck = await fetchRugCheck(mint);
+
             // Dispatch immediately to Telegram (@memcoinhome_bot)
             if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
               const card = formatVerifiedLaunchCard(
@@ -479,7 +483,10 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
                 memeAnalysis.ai_slop_score,
                 memeAnalysis.is_ai_slop,
                 sri.serial_rug_index,
-                isSmartCreator
+                isSmartCreator,
+                rugCheck.status,
+                rugCheck.score,
+                rugCheck.risks
               );
               await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, card);
             }
