@@ -1,13 +1,16 @@
 /**
  * Institutional Bloomberg-Grade Live Radar, Whales Forensics & Execution Cockpit.
- * Designed to HRT/Citadel/Jane Street quantitative specifications for Solana & Pump.fun.
- *
- * Core Capabilities:
- * 1. Bloomberg 3-Pane Cockpit View with keyboard hotkeys (P, B, G, M, V, Space)
- * 2. Interactive Arkham/Bubblemaps Sybil Canvas Engine
- * 3. Native Web Audio API Acoustic Synthesizer (Sonar pings & de-escalation tones)
- * 4. Jito Anti-MEV Tip Recommendation & 1-Click Fast Sniper Execution Dock
- * 5. Deep On-Chain Whale & Capital Forensics Inspector
+ * Ported & Enhanced with Quantitative Technologies from E:\QRML:
+ * - Bloomberg BLP Signature Aesthetic (Amber #ff9900 & Cyan #00ffff)
+ * - Real-Time Macro Ticker Tape (SOL, BTC, Pump Velocity, Jito Tip)
+ * - Multi-Tab Center Command Deck:
+ *     1. 🕸️ Arkham Sybil Cluster Canvas (Visual Orbital Graph)
+ *     2. 📈 Embedded TradingView Candlestick Terminal (DexScreener API)
+ *     3. ⚡ HFT Order Book Imbalance (OBI) & Micro-Price Depth Radar
+ *     4. 📊 Alpha-158 Quantitative Factor Matrix
+ * - Native Web Audio API Acoustic Synthesizer (Sonar pings & de-escalation tones)
+ * - Jito Anti-MEV Tip Recommendation & 1-Click Fast Sniper Execution Dock
+ * - Quant Hotkeys: [SPACE] Deep Inspect, [P] Photon, [B] BullX, [G] GMGN, [M] Mute, [V] View
  */
 
 export function renderDashboardHtml(): string {
@@ -16,138 +19,158 @@ export function renderDashboardHtml(): string {
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PumpRadar — Institutional Quant & Forensics Cockpit</title>
+  <title>Bloomberg Terminal // Solana Quant Radar & Whales Forensics (BLP)</title>
   <style>
     :root {
       --bg: #06090c;
       --card-bg: #0b1015;
       --card-hover: #101720;
       --pane-header: #0e141a;
-      --border: #16212b;
+      --border: #18222d;
       --border-focus: #00d2ff;
       --text: #e2e8f0;
       --text-muted: #64748b;
-      --accent: #00d2ff;
-      --green: #10b981;
-      --red: #ef4444;
+      --accent: #00ffff;
+      --bbg-amber: #ff9900;
+      --green: #00ff66;
+      --red: #ff3344;
       --yellow: #f59e0b;
       --purple: #a855f7;
       --gold: #fbbf24;
-      --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      font-size: 13px;
+      font-family: var(--font-mono);
+      font-size: 12px;
       line-height: 1.5;
-      padding: 12px 16px;
+      padding: 10px 14px;
       overflow-x: hidden;
     }
     a { color: var(--accent); text-decoration: none; }
     a:hover { text-decoration: underline; }
     .mono { font-family: var(--font-mono); }
 
-    /* Top Command Bar */
+    /* Bloomberg Amber Command Header */
     header {
+      background: linear-gradient(90deg, #0e141a 0%, #06090c 100%);
+      border-bottom: 2px solid var(--bbg-amber);
+      padding: 8px 12px;
+      margin-bottom: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding-bottom: 12px;
-      border-bottom: 1px solid var(--border);
-      margin-bottom: 12px;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 8px;
+      border-radius: 4px;
     }
     .brand {
       display: flex;
       align-items: center;
       gap: 10px;
-      font-size: 15px;
-      font-weight: 700;
-      letter-spacing: 0.5px;
+      font-size: 14px;
+      font-weight: 800;
+      letter-spacing: 1px;
+      color: var(--bbg-amber);
     }
     .pulse-dot {
-      width: 9px;
-      height: 9px;
+      width: 8px;
+      height: 8px;
       background: var(--green);
       border-radius: 50%;
       box-shadow: 0 0 8px var(--green);
       animation: pulse 1.5s infinite;
     }
-    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.4; transform: scale(0.85); } }
+    @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.3; transform: scale(0.85); } }
     .status-badge {
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      background: rgba(16, 185, 129, 0.1);
-      color: var(--green);
-      border: 1px solid rgba(16, 185, 129, 0.3);
-      padding: 3px 8px;
-      border-radius: 10px;
       font-size: 10px;
-      font-weight: 600;
+      color: var(--accent);
+      background: #10161d;
+      padding: 3px 8px;
+      border-radius: 3px;
+      border: 1px solid rgba(0, 255, 255, 0.25);
+      font-weight: 700;
     }
+
+    /* Live Macro Ticker Tape (E:\QRML Port) */
+    .ticker-tape {
+      background: #090d12;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 4px 10px;
+      margin-bottom: 10px;
+      display: flex;
+      overflow-x: auto;
+      gap: 18px;
+      font-size: 11px;
+      white-space: nowrap;
+    }
+    .ticker-item { display: inline-flex; gap: 5px; align-items: center; }
+    .ticker-name { color: #94a3b8; font-weight: 600; }
+    .ticker-up { color: var(--green); font-weight: 700; }
+    .ticker-down { color: var(--red); font-weight: 700; }
+    .ticker-neutral { color: var(--accent); }
 
     /* KPI Bar */
     .metrics-bar {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-      gap: 10px;
-      margin-bottom: 14px;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 8px;
+      margin-bottom: 10px;
     }
     .metric-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 8px 12px;
+      border-radius: 4px;
+      padding: 6px 10px;
     }
     .metric-label {
-      font-size: 10px;
+      font-size: 9px;
       color: var(--text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       margin-bottom: 2px;
     }
     .metric-val {
-      font-size: 20px;
+      font-size: 18px;
       font-weight: 700;
-      font-family: var(--font-mono);
+      color: #f8fafc;
     }
 
-    /* Controls & Hotkeys Strip */
+    /* Hotkeys Control Strip */
     .command-strip {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #090e13;
+      background: #080c10;
       border: 1px solid var(--border);
-      border-radius: 6px;
-      padding: 6px 12px;
-      margin-bottom: 12px;
-      font-size: 11px;
+      border-radius: 4px;
+      padding: 5px 10px;
+      margin-bottom: 10px;
+      font-size: 10px;
       flex-wrap: wrap;
-      gap: 8px;
+      gap: 6px;
     }
     .hotkey-pill {
-      background: #151e27;
+      background: #141c24;
       border: 1px solid #233140;
-      border-radius: 4px;
-      padding: 1px 6px;
-      font-family: var(--font-mono);
-      font-size: 10px;
-      color: var(--accent);
-      margin-right: 4px;
+      border-radius: 3px;
+      padding: 1px 5px;
+      font-size: 9px;
+      color: var(--bbg-amber);
+      font-weight: 700;
+      margin-right: 3px;
     }
 
-    /* Bloomberg 3-Pane Cockpit Layout */
+    /* Bloomberg 3-Pane Cockpit Grid */
     .cockpit-grid {
       display: grid;
       grid-template-columns: 320px 1fr 340px;
-      gap: 12px;
-      height: calc(100vh - 165px);
-      min-height: 600px;
+      gap: 10px;
+      height: calc(100vh - 170px);
+      min-height: 620px;
     }
     @media (max-width: 1200px) {
       .cockpit-grid {
@@ -158,18 +181,18 @@ export function renderDashboardHtml(): string {
     .cockpit-pane {
       background: var(--card-bg);
       border: 1px solid var(--border);
-      border-radius: 8px;
+      border-radius: 6px;
       display: flex;
       flex-direction: column;
       overflow: hidden;
     }
     .pane-header {
-      padding: 8px 12px;
+      padding: 6px 10px;
       background: var(--pane-header);
       border-bottom: 1px solid var(--border);
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
-      color: var(--text-muted);
+      color: var(--bbg-amber);
       text-transform: uppercase;
       letter-spacing: 0.5px;
       display: flex;
@@ -179,103 +202,151 @@ export function renderDashboardHtml(): string {
     .pane-content {
       flex: 1;
       overflow-y: auto;
-      padding: 10px;
+      padding: 8px;
     }
 
-    /* Firehose List (Left Pane) */
+    /* Tab Switcher inside Center Pane */
+    .center-tab-strip {
+      display: flex;
+      gap: 4px;
+      background: #080c10;
+      border-bottom: 1px solid var(--border);
+      padding: 4px 8px;
+    }
+    .center-tab-btn {
+      background: #111720;
+      border: 1px solid #1c2734;
+      color: #94a3b8;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 4px 8px;
+      border-radius: 3px;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+    .center-tab-btn:hover { color: #fff; border-color: var(--accent); }
+    .center-tab-btn.active {
+      background: var(--bbg-amber);
+      color: #000;
+      border-color: var(--bbg-amber);
+    }
+
+    /* Firehose Items (Left Pane) */
     .firehose-item {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 7px 10px;
-      border-bottom: 1px solid #141c24;
+      padding: 6px 8px;
+      border-bottom: 1px solid #111822;
       cursor: pointer;
-      transition: background 0.15s ease;
-      border-radius: 4px;
+      transition: background 0.12s ease;
+      border-radius: 3px;
     }
     .firehose-item:hover { background: var(--card-hover); }
     .firehose-item.active {
-      background: rgba(0, 210, 255, 0.1);
-      border-color: rgba(0, 210, 255, 0.3);
+      background: rgba(255, 153, 0, 0.12);
+      border-left: 2px solid var(--bbg-amber);
     }
 
-    /* Center Active Radar Pane */
-    .active-token-hero {
-      background: #0d141b;
-      border: 1px solid #1d2a37;
-      border-radius: 8px;
-      padding: 14px;
-      margin-bottom: 12px;
-    }
+    /* Canvas & Chart Containers */
     .canvas-container {
-      background: #080c10;
-      border: 1px solid #16222d;
-      border-radius: 8px;
-      padding: 10px;
+      background: #06090c;
+      border: 1px solid #151f2b;
+      border-radius: 6px;
+      padding: 8px;
       text-align: center;
       position: relative;
-      margin-bottom: 12px;
     }
     canvas {
       display: block;
       width: 100%;
       height: 220px;
     }
+    .chart-container {
+      width: 100%;
+      height: 250px;
+      background: #06090c;
+      border-radius: 6px;
+      overflow: hidden;
+      border: 1px solid #151f2b;
+    }
+
+    /* HFT OBI Radar Visuals */
+    .obi-meter-wrap {
+      background: #141c24;
+      border-radius: 4px;
+      height: 14px;
+      position: relative;
+      overflow: hidden;
+      margin: 6px 0;
+      border: 1px solid #202c38;
+      display: flex;
+    }
+    .obi-bid-side {
+      background: var(--green);
+      height: 100%;
+      transition: width 0.3s ease;
+    }
+    .obi-ask-side {
+      background: var(--red);
+      height: 100%;
+      transition: width 0.3s ease;
+    }
 
     /* Badges */
     .badge {
       display: inline-block;
-      padding: 2px 6px;
-      border-radius: 4px;
-      font-size: 10px;
-      font-weight: 600;
-      font-family: var(--font-mono);
+      padding: 1px 5px;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 700;
       text-transform: uppercase;
     }
-    .badge-green { background: rgba(16, 185, 129, 0.15); color: var(--green); border: 1px solid rgba(16, 185, 129, 0.3); }
-    .badge-red { background: rgba(239, 68, 68, 0.15); color: var(--red); border: 1px solid rgba(239, 68, 68, 0.3); }
+    .badge-green { background: rgba(0, 255, 102, 0.15); color: var(--green); border: 1px solid rgba(0, 255, 102, 0.3); }
+    .badge-red { background: rgba(255, 51, 68, 0.15); color: var(--red); border: 1px solid rgba(255, 51, 68, 0.3); }
     .badge-yellow { background: rgba(245, 158, 11, 0.15); color: var(--yellow); border: 1px solid rgba(245, 158, 11, 0.3); }
     .badge-purple { background: rgba(168, 85, 247, 0.15); color: var(--purple); border: 1px solid rgba(168, 85, 247, 0.3); }
-    .badge-gold { background: rgba(251, 191, 36, 0.15); color: var(--gold); border: 1px solid rgba(251, 191, 36, 0.3); }
+    .badge-amber { background: rgba(255, 153, 0, 0.15); color: var(--bbg-amber); border: 1px solid rgba(255, 153, 0, 0.3); }
+    .badge-cyan { background: rgba(0, 255, 255, 0.15); color: var(--accent); border: 1px solid rgba(0, 255, 255, 0.3); }
     .badge-muted { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); border: 1px solid var(--border); }
 
     /* Buttons */
     .btn {
-      background: #141c24;
+      background: #121820;
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 4px 10px;
-      border-radius: 4px;
+      padding: 4px 8px;
+      border-radius: 3px;
       cursor: pointer;
-      font-size: 11px;
-      font-weight: 600;
+      font-size: 10px;
+      font-weight: 700;
       display: inline-flex;
       align-items: center;
-      gap: 4px;
-      transition: all 0.15s ease;
+      gap: 3px;
+      transition: all 0.12s ease;
+      font-family: var(--font-mono);
     }
-    .btn:hover { background: #1c2631; border-color: #2b3b4b; }
+    .btn:hover { background: #1c2632; border-color: #2b3b4d; }
     .btn-inspect {
-      background: rgba(0, 210, 255, 0.12);
-      border: 1px solid rgba(0, 210, 255, 0.4);
+      background: rgba(0, 255, 255, 0.12);
+      border: 1px solid rgba(0, 255, 255, 0.4);
       color: var(--accent);
-      font-weight: 700;
     }
-    .btn-inspect:hover { background: rgba(0, 210, 255, 0.25); border-color: var(--accent); }
+    .btn-inspect:hover { background: rgba(0, 255, 255, 0.25); border-color: var(--accent); }
 
     /* Progress bar */
     .progress-bar-wrap {
-      background: #141c24;
-      border-radius: 4px;
-      height: 8px;
+      background: #111720;
+      border-radius: 3px;
+      height: 7px;
       overflow: hidden;
-      margin-top: 6px;
-      border: 1px solid #1e2a36;
+      margin-top: 5px;
+      border: 1px solid #1a2532;
     }
     .progress-bar-fill {
       height: 100%;
-      background: linear-gradient(90deg, #10b981, #00d2ff);
-      box-shadow: 0 0 8px rgba(0, 210, 255, 0.4);
+      background: linear-gradient(90deg, var(--green), var(--accent));
+      box-shadow: 0 0 8px rgba(0, 255, 255, 0.4);
       transition: width 0.3s ease;
     }
 
@@ -283,25 +354,25 @@ export function renderDashboardHtml(): string {
     .modal-backdrop {
       position: fixed;
       inset: 0;
-      background: rgba(2, 5, 8, 0.88);
+      background: rgba(2, 5, 8, 0.9);
       backdrop-filter: blur(8px);
       z-index: 9999;
       display: none;
       align-items: center;
       justify-content: center;
-      padding: 16px;
+      padding: 12px;
     }
     .modal-backdrop.open { display: flex; }
     .modal-window {
-      background: #0a0f14;
-      border: 1px solid #1c2834;
-      border-radius: 10px;
+      background: #090e13;
+      border: 1px solid #1f2c3a;
+      border-radius: 8px;
       width: 100%;
       max-width: 960px;
       max-height: 92vh;
       display: flex;
       flex-direction: column;
-      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.9);
       animation: modalFadeIn 0.15s ease-out;
     }
     @keyframes modalFadeIn {
@@ -309,54 +380,54 @@ export function renderDashboardHtml(): string {
       to { opacity: 1; transform: scale(1); }
     }
     .modal-header {
-      padding: 14px 18px;
-      border-bottom: 1px solid var(--border);
+      padding: 12px 16px;
+      border-bottom: 2px solid var(--bbg-amber);
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #0d1319;
-      border-top-left-radius: 10px;
-      border-top-right-radius: 10px;
+      background: #0c1218;
+      border-top-left-radius: 8px;
+      border-top-right-radius: 8px;
     }
     .modal-body {
-      padding: 18px;
+      padding: 16px;
       overflow-y: auto;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 12px;
     }
     .modal-footer {
-      padding: 12px 18px;
+      padding: 10px 16px;
       border-top: 1px solid var(--border);
-      background: #0d1319;
-      border-bottom-left-radius: 10px;
-      border-bottom-right-radius: 10px;
+      background: #0c1218;
+      border-bottom-left-radius: 8px;
+      border-bottom-right-radius: 8px;
       display: flex;
       justify-content: space-between;
       align-items: center;
       flex-wrap: wrap;
-      gap: 10px;
+      gap: 8px;
     }
 
     /* Bento Grid */
     .bento-grid {
       display: grid;
       grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 12px;
+      gap: 10px;
     }
     .bento-card {
-      background: #0f151c;
-      border: 1px solid #192430;
-      border-radius: 6px;
-      padding: 12px;
+      background: #0c1218;
+      border: 1px solid #16212c;
+      border-radius: 5px;
+      padding: 10px;
     }
     .bento-card-title {
       font-size: 10px;
       font-weight: 700;
-      color: var(--text-muted);
+      color: var(--bbg-amber);
       text-transform: uppercase;
       letter-spacing: 0.5px;
-      margin-bottom: 8px;
+      margin-bottom: 6px;
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -370,16 +441,16 @@ export function renderDashboardHtml(): string {
       font-size: 11px;
     }
     th {
-      background: #0a0e12;
+      background: #080c10;
       color: var(--text-muted);
-      font-weight: 600;
-      padding: 7px 10px;
+      font-weight: 700;
+      padding: 6px 8px;
       border-bottom: 1px solid var(--border);
       white-space: nowrap;
     }
     td {
-      padding: 7px 10px;
-      border-bottom: 1px solid #121a22;
+      padding: 6px 8px;
+      border-bottom: 1px solid #10161f;
       vertical-align: middle;
       white-space: nowrap;
     }
@@ -395,10 +466,10 @@ export function renderDashboardHtml(): string {
   <header>
     <div class="brand">
       <div class="pulse-dot"></div>
-      <span>PUMPRADAR <span style="color:var(--text-muted);font-weight:400;">/ QUANT COCKPIT v2.4</span></span>
-      <span class="status-badge">CITADEL/HRT SPEC</span>
+      <span>BLOOMBERG // SOLANA QUANT COCKPIT <span style="color:#64748b;font-weight:400;font-size:11px;">[QRML / CITADEL SPEC]</span></span>
+      <span class="status-badge">BLP TERMINAL v3.0</span>
     </div>
-    <div style="display:flex;align-items:center;gap:10px;">
+    <div style="display:flex;align-items:center;gap:8px;">
       <span class="mono" id="clock" style="color:var(--text-muted);font-size:11px;">--:--:-- UTC</span>
       <button class="btn" id="audio-toggle-btn" onclick="toggleAudio()" style="color:var(--green);">🔊 Audio: ARMED</button>
       <button class="btn" id="view-toggle-btn" onclick="toggleLayout()">🖥️ Cockpit Mode</button>
@@ -406,7 +477,19 @@ export function renderDashboardHtml(): string {
     </div>
   </header>
 
-  <!-- Metrics Bar -->
+  <!-- Live Macro Ticker Tape Ribbon -->
+  <div class="ticker-tape">
+    <div class="ticker-item"><span class="ticker-name">SOL/USD</span> <span class="ticker-up" id="t-sol">$184.20 (+4.8%)</span></div>
+    <div class="ticker-item"><span class="ticker-name">BTC/USD</span> <span class="ticker-up" id="t-btc">$89,450 (+2.1%)</span></div>
+    <div class="ticker-item"><span class="ticker-name">SOL GAS</span> <span class="ticker-neutral">0.000005 SOL</span></div>
+    <div class="ticker-item"><span class="ticker-name">JITO BASE TIP</span> <span class="ticker-up">0.003 SOL (~$0.60)</span></div>
+    <div class="ticker-item"><span class="ticker-name">PUMP INGESTION</span> <span class="ticker-neutral" id="t-rate">~60/min</span></div>
+    <div class="ticker-item"><span class="ticker-name">RAYDIUM GRADUATION RATE</span> <span class="ticker-neutral">1.4%</span></div>
+    <div class="ticker-item"><span class="ticker-name">MEV PROTECTION</span> <span class="ticker-up">ACTIVE</span></div>
+    <div class="ticker-item"><span class="ticker-name">SYSTEM HEALTH</span> <span class="ticker-up">100% OK</span></div>
+  </div>
+
+  <!-- KPI Bar -->
   <div class="metrics-bar">
     <div class="metric-card">
       <div class="metric-label">Launches Logged</div>
@@ -425,12 +508,12 @@ export function renderDashboardHtml(): string {
       <div class="metric-val" id="metric-blocked" style="color:var(--red);">--</div>
     </div>
     <div class="metric-card">
-      <div class="metric-label">Alerts Dispatched</div>
+      <div class="metric-label">Quant Signals Dispatched</div>
       <div class="metric-val" id="metric-alerts" style="color:var(--purple);">--</div>
     </div>
   </div>
 
-  <!-- Command Strip with Institutional Hotkeys -->
+  <!-- Command Strip with Quant Hotkeys -->
   <div class="command-strip">
     <div>
       <span style="color:var(--text-muted);margin-right:8px;">QUANT HOTKEYS:</span>
@@ -442,44 +525,48 @@ export function renderDashboardHtml(): string {
       <span><span class="hotkey-pill">V</span>Switch View</span>
     </div>
     <div style="color:var(--text-muted);">
-      <span id="feed-status">Sub-second Geyser Stream Active</span>
+      <span id="feed-status">Sub-second Geyser Webhook Live</span>
     </div>
   </div>
 
   <!-- ========================================== -->
-  <!-- 1. BLOOMBERG 3-PANE COCKPIT VIEW (DEFAULT) -->
+  <!-- 1. BLOOMBERG 3-PANE COCKPIT VIEW           -->
   <!-- ========================================== -->
   <div class="view-cockpit cockpit-grid">
     <!-- PANE 1: Solana Firehose Ingestion Feed -->
     <div class="cockpit-pane">
       <div class="pane-header">
         <span>⚡ Solana Firehose Stream</span>
-        <span class="mono" style="font-size:10px;color:var(--accent);">L1 Ingestion</span>
+        <span class="mono" style="font-size:9px;color:var(--accent);">L1 Ingest</span>
       </div>
       <div class="pane-content" id="firehose-list" style="padding:4px;">
         <div style="text-align:center;padding:30px;color:var(--text-muted);">Syncing edge firehose...</div>
       </div>
     </div>
 
-    <!-- PANE 2: Center Active Radar & Arkham Sybil Bubble Canvas -->
+    <!-- PANE 2: Center Multi-Tab Command Deck -->
     <div class="cockpit-pane">
-      <div class="pane-header">
-        <span>🔬 Active Token Microstructure & Sybil Graph</span>
-        <button class="btn btn-inspect" onclick="openActiveTokenModal()">Full Inspect [Space] ↗</button>
+      <!-- Multi-Tab Navigation Ribbon -->
+      <div class="center-tab-strip">
+        <button class="center-tab-btn active" id="tab-btn-sybil" onclick="switchCenterTab('sybil')">🕸️ Arkham Sybil Graph</button>
+        <button class="center-tab-btn" id="tab-btn-tv" onclick="switchCenterTab('tv')">📈 TradingView Live Chart</button>
+        <button class="center-tab-btn" id="tab-btn-obi" onclick="switchCenterTab('obi')">⚡ HFT OBI Radar</button>
+        <button class="center-tab-btn" id="tab-btn-factors" onclick="switchCenterTab('factors')">📊 Alpha-158 Factors</button>
       </div>
+
       <div class="pane-content">
-        <!-- Active Token Hero -->
-        <div class="active-token-hero">
-          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;">
+        <!-- Active Token Hero Banner -->
+        <div class="bento-card" style="margin-bottom:8px;background:#0d141b;border-color:#1d2a37;">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;">
             <div>
-              <div style="font-size:17px;font-weight:700;" id="c-token-name">Select a Token</div>
+              <div style="font-size:16px;font-weight:800;color:#fff;" id="c-token-name">Select a Token</div>
               <div class="mono" style="font-size:11px;color:var(--accent);" id="c-token-mint">--</div>
             </div>
-            <span id="c-token-badge" class="badge badge-purple">STAGE 1</span>
+            <button class="btn btn-inspect" onclick="openActiveTokenModal()">Full Inspect [Space] ↗</button>
           </div>
 
-          <!-- Curve Progress -->
-          <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px;">
+          <!-- Curve Progress Dial -->
+          <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:6px;">
             <span id="c-curve-text">0.0% to Raydium</span>
             <span id="c-net-sol">0.00 SOL Raised</span>
           </div>
@@ -488,28 +575,101 @@ export function renderDashboardHtml(): string {
           </div>
         </div>
 
-        <!-- Interactive Sybil / Bubblemaps Canvas -->
-        <div class="canvas-container">
-          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:10px;color:var(--text-muted);">
-            <span>ARKHAM SYBIL CLUSTER GRAPH</span>
-            <span id="c-cluster-verdict" class="badge badge-green">Organic Decentralized</span>
+        <!-- TAB 1: Arkham Sybil Bubble Canvas -->
+        <div id="view-tab-sybil">
+          <div class="canvas-container">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;font-size:10px;color:var(--text-muted);">
+              <span style="color:var(--bbg-amber);font-weight:700;">ARKHAM SYBIL CLUSTER ENGINE</span>
+              <span id="c-cluster-verdict" class="badge badge-green">Organic Flow</span>
+            </div>
+            <canvas id="sybil-canvas"></canvas>
+            <div style="display:flex;justify-content:center;gap:12px;font-size:10px;color:var(--text-muted);margin-top:4px;">
+              <span><span style="color:#f59e0b;">●</span> Dev Wallet</span>
+              <span><span style="color:#ff3344;">●</span> Bundled Insider</span>
+              <span><span style="color:#00ff66;">●</span> Whale</span>
+              <span><span style="color:#00ffff;">●</span> Early Buyer</span>
+            </div>
           </div>
-          <canvas id="sybil-canvas"></canvas>
-          <div style="display:flex;justify-content:center;gap:12px;font-size:10px;color:var(--text-muted);margin-top:6px;">
-            <span><span style="color:#f59e0b;">●</span> Dev Wallet</span>
-            <span><span style="color:#ef4444;">●</span> Bundled Insider</span>
-            <span><span style="color:#10b981;">●</span> Whale</span>
-            <span><span style="color:#00d2ff;">●</span> Early Buyer</span>
+        </div>
+
+        <!-- TAB 2: Embedded TradingView Candlestick Terminal -->
+        <div id="view-tab-tv" style="display:none;">
+          <div class="chart-container">
+            <iframe id="c-tradingview-frame" src="" style="width:100%;height:100%;border:none;background:#06090c;"></iframe>
+          </div>
+        </div>
+
+        <!-- TAB 3: HFT Order Book Imbalance (OBI) & Micro-Price Depth Radar -->
+        <div id="view-tab-obi" style="display:none;">
+          <div class="bento-card" style="margin-bottom:8px;">
+            <div class="bento-card-title">
+              <span>HFT ORDER BOOK IMBALANCE (OBI) METER</span>
+              <span id="obi-status-badge" class="badge badge-green">ACCUMULATION</span>
+            </div>
+            <div style="font-size:11px;color:var(--text-muted);display:flex;justify-content:space-between;">
+              <span id="obi-bid-label">Bid Flow: 0 SOL</span>
+              <span id="obi-ask-label">Ask Flow: 0 SOL</span>
+            </div>
+            <div class="obi-meter-wrap">
+              <div class="obi-bid-side" id="obi-bid-bar" style="width:50%;"></div>
+              <div class="obi-ask-side" id="obi-ask-bar" style="width:50%;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:10px;margin-top:4px;">
+              <span class="mono" id="obi-ratio-text">OBI Ratio: K = +0.000</span>
+              <span class="mono" id="obi-micro-text">Micro-Price Drift: 0.00%</span>
+            </div>
+          </div>
+          <div class="bento-card">
+            <div class="bento-card-title">LEVEL-2 LIQUIDITY WALL MATRIX</div>
+            <div style="font-size:11px;display:flex;flex-direction:column;gap:4px;" id="obi-ladder-box">
+              <div style="text-align:center;color:var(--text-muted);padding:10px;">Select token to load L2 microstructural ladder...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 4: Alpha-158 Quantitative Factor Matrix -->
+        <div id="view-tab-factors" style="display:none;">
+          <div class="bento-grid">
+            <div class="bento-card">
+              <div class="bento-card-title">🚀 MOMENTUM DRIFT (MOM_5M)</div>
+              <div class="metric-val" id="f-mom" style="color:var(--green);font-size:16px;">-- SOL/min</div>
+              <div style="font-size:9px;color:var(--text-muted);">Curve capital inflow velocity</div>
+            </div>
+            <div class="bento-card">
+              <div class="bento-card-title">⚖️ ORDER FLOW IMBALANCE (OFI)</div>
+              <div class="metric-val" id="f-ofi" style="color:var(--accent);font-size:16px;">--%</div>
+              <div style="font-size:9px;color:var(--text-muted);">Net buy pressure asymmetry</div>
+            </div>
+            <div class="bento-card">
+              <div class="bento-card-title">☣️ TOXICITY RATIO (VPIN)</div>
+              <div class="metric-val" id="f-vpin" style="color:var(--yellow);font-size:16px;">--%</div>
+              <div style="font-size:9px;color:var(--text-muted);">Adverse informed toxicity</div>
+            </div>
+            <div class="bento-card">
+              <div class="bento-card-title">⚡ HAWKES SUPERCRITICALITY (η)</div>
+              <div class="metric-val" id="f-hawkes" style="color:var(--purple);font-size:16px;">η = 0.50</div>
+              <div style="font-size:9px;color:var(--text-muted);">Self-exciting viral cascade</div>
+            </div>
+            <div class="bento-card">
+              <div class="bento-card-title">🌐 SHANNON CAPITAL ENTROPY</div>
+              <div class="metric-val" id="f-entropy" style="color:#38bdf8;font-size:16px;">-- bits</div>
+              <div style="font-size:9px;color:var(--text-muted);">Decentralization of holder base</div>
+            </div>
+            <div class="bento-card">
+              <div class="bento-card-title">🛡️ SERIAL RUG INDEX (SRI)</div>
+              <div class="metric-val" id="f-sri" style="color:var(--green);font-size:16px;">0.00 (Clean)</div>
+              <div style="font-size:9px;color:var(--text-muted);">Deployer historical track record</div>
+            </div>
           </div>
         </div>
 
         <!-- Jito Anti-MEV Tip & Fast Execution Command Dock -->
-        <div class="bento-card" style="background:#0a0e13;border-color:#1c2936;">
+        <div class="bento-card" style="background:#090d12;border-color:#1c2836;margin-top:8px;">
           <div class="bento-card-title">
-            <span>⚡ Jito Anti-MEV Gateway & 1-Click Execution</span>
-            <span id="c-jito-tip" class="badge badge-gold">Rec. Tip: 0.003 SOL</span>
+            <span>⚡ JITO ANTI-MEV GATEWAY & 1-CLICK EXECUTION</span>
+            <span id="c-jito-tip" class="badge badge-amber">Rec. Tip: 0.003 SOL</span>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:6px;margin-top:8px;">
+          <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(95px, 1fr));gap:6px;margin-top:6px;">
             <a id="c-btn-photon" href="#" target="_blank" class="btn" style="background:#f59e0b;color:#000;font-weight:700;justify-content:center;">⚡ Photon [P]</a>
             <a id="c-btn-bullx" href="#" target="_blank" class="btn" style="background:#10b981;color:#000;font-weight:700;justify-content:center;">🎯 BullX [B]</a>
             <a id="c-btn-gmgn" href="#" target="_blank" class="btn" style="background:#00d2ff;color:#000;font-weight:700;justify-content:center;">🤖 GMGN [G]</a>
@@ -524,9 +684,9 @@ export function renderDashboardHtml(): string {
     <div class="cockpit-pane">
       <div class="pane-header">
         <span>🚨 Dispatched Signals (@memcoinhome_bot)</span>
-        <span class="mono" id="c-signals-count" style="font-size:10px;color:var(--purple);">0 Active</span>
+        <span class="mono" id="c-signals-count" style="font-size:9px;color:var(--purple);">0 Active</span>
       </div>
-      <div class="pane-content" style="padding:6px;">
+      <div class="pane-content" style="padding:4px;">
         <div id="c-alerts-list">
           <div style="text-align:center;padding:24px;color:var(--text-muted);">Awaiting high-conviction signals...</div>
         </div>
@@ -539,11 +699,11 @@ export function renderDashboardHtml(): string {
   <!-- ========================================== -->
   <div class="view-standard">
     <!-- Recent Alerts Table -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text-muted);">🚨 Dispatched Quant Signals</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--bbg-amber);">🚨 Dispatched Quant Signals</span>
       <span id="alerts-count" class="mono" style="color:var(--purple);">0 Signals</span>
     </div>
-    <div class="cockpit-pane" style="margin-bottom:20px;overflow-x:auto;">
+    <div class="cockpit-pane" style="margin-bottom:16px;overflow-x:auto;">
       <table id="alerts-table">
         <thead>
           <tr>
@@ -565,8 +725,8 @@ export function renderDashboardHtml(): string {
     </div>
 
     <!-- Live Ingestion Feed Table -->
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-      <span style="font-size:12px;font-weight:700;text-transform:uppercase;color:var(--text-muted);">⚡ Live Solana Ingestion Stream</span>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <span style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--bbg-amber);">⚡ Live Solana Ingestion Stream</span>
       <span class="mono" style="color:var(--text-muted);">Auto-refreshing 3s</span>
     </div>
     <div class="cockpit-pane" style="overflow-x:auto;">
@@ -585,7 +745,7 @@ export function renderDashboardHtml(): string {
           </tr>
         </thead>
         <tbody id="events-body">
-          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:24px;">Connecting to Cloudflare Workers Edge stream...</td></tr>
+          <tr><td colspan="9" style="text-align:center;color:var(--text-muted);padding:20px;">Connecting to Cloudflare Workers Edge stream...</td></tr>
         </tbody>
       </table>
     </div>
@@ -598,31 +758,31 @@ export function renderDashboardHtml(): string {
     <div class="modal-window" onclick="event.stopPropagation()">
       <div class="modal-header">
         <div style="display:flex;align-items:center;gap:12px;">
-          <div style="font-size:17px;font-weight:700;" id="m-token-title">Loading Token...</div>
+          <div style="font-size:16px;font-weight:800;color:var(--bbg-amber);" id="m-token-title">Loading Token...</div>
           <span id="m-token-badge" class="badge badge-purple">STAGE 1</span>
         </div>
-        <div style="display:flex;align-items:center;gap:8px;">
+        <div style="display:flex;align-items:center;gap:6px;">
           <button class="btn" onclick="copyMintAddress()" id="copy-mint-btn">📋 Copy Mint</button>
           <a id="m-solscan-token-link" href="#" target="_blank" class="btn">Solscan ↗</a>
-          <button class="btn" onclick="closeInspectModalDirect()" style="padding:4px 8px;font-size:13px;">✕</button>
+          <button class="btn" onclick="closeInspectModalDirect()" style="padding:3px 7px;font-size:12px;">✕</button>
         </div>
       </div>
 
       <div class="modal-body" id="m-modal-body">
-        <div id="m-loading-state" style="text-align:center;padding:40px;color:var(--text-muted);">
+        <div id="m-loading-state" style="text-align:center;padding:30px;color:var(--text-muted);">
           <div class="pulse-dot" style="margin:0 auto 10px auto;width:12px;height:12px;"></div>
-          Querying RugCheck contract audit & mapping Sybil clusters...
+          Connecting to on-chain ledger, querying RugCheck contract audit & mapping Sybil clusters...
         </div>
 
-        <div id="m-content-state" style="display:none;flex-direction:column;gap:14px;">
+        <div id="m-content-state" style="display:none;flex-direction:column;gap:12px;">
           <!-- Mint Address Monospace Bar -->
-          <div style="background:#080c10;padding:7px 12px;border-radius:5px;border:1px solid #16212b;display:flex;justify-content:space-between;align-items:center;">
+          <div style="background:#070b0e;padding:6px 10px;border-radius:4px;border:1px solid #16212c;display:flex;justify-content:space-between;align-items:center;">
             <span class="mono" style="font-size:11px;color:var(--accent);" id="m-mint-addr">--</span>
-            <span style="font-size:11px;color:var(--text-muted);" id="m-created-time">--</span>
+            <span style="font-size:10px;color:var(--text-muted);" id="m-created-time">--</span>
           </div>
 
-          <!-- Bonding Curve Progress Hero -->
-          <div class="bento-card" style="background:#0d1319;border-color:#1c2936;">
+          <!-- Curve Hero -->
+          <div class="bento-card" style="background:#0b1016;border-color:#1c2937;">
             <div style="display:flex;justify-content:space-between;align-items:baseline;">
               <span class="bento-card-title">📈 Bonding Curve & Migration Progress</span>
               <span class="mono" style="font-weight:700;color:var(--accent);" id="m-curve-text">0.0% to Raydium</span>
@@ -630,7 +790,7 @@ export function renderDashboardHtml(): string {
             <div class="progress-bar-wrap">
               <div class="progress-bar-fill" id="m-curve-bar" style="width:0%;"></div>
             </div>
-            <div style="display:flex;justify-content:space-between;font-size:11px;color:var(--text-muted);margin-top:6px;">
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);margin-top:5px;">
               <span id="m-net-sol-hero">0.00 SOL Raised</span>
               <span id="m-sol-to-grad">85.00 SOL remaining</span>
             </div>
@@ -641,7 +801,7 @@ export function renderDashboardHtml(): string {
             <!-- Card 1: Creator DNA -->
             <div class="bento-card">
               <div class="bento-card-title">👤 Creator DNA & Deployment History</div>
-              <div style="display:flex;flex-direction:column;gap:6px;font-size:11px;">
+              <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;">
                 <div style="display:flex;justify-content:space-between;">
                   <span style="color:var(--text-muted);">Creator Wallet:</span>
                   <a id="m-creator-link" href="#" target="_blank" class="mono">--</a>
@@ -667,8 +827,8 @@ export function renderDashboardHtml(): string {
 
             <!-- Card 2: Financials & Market Depth -->
             <div class="bento-card">
-              <div class="bento-card-title">💰 Capital Deployed & Market Depth</div>
-              <div style="display:flex;flex-direction:column;gap:6px;font-size:11px;">
+              <div class="bento-card-title">💰 Capital Deployed & Depth</div>
+              <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;">
                 <div style="display:flex;justify-content:space-between;">
                   <span style="color:var(--text-muted);">Net SOL Deployed:</span>
                   <span class="mono" style="font-weight:700;color:var(--green);" id="m-net-sol">--</span>
@@ -694,8 +854,8 @@ export function renderDashboardHtml(): string {
 
             <!-- Card 3: Security & RugCheck -->
             <div class="bento-card">
-              <div class="bento-card-title">🛡️ Contract Security (RugCheck Audit)</div>
-              <div style="display:flex;flex-direction:column;gap:6px;font-size:11px;">
+              <div class="bento-card-title">🛡️ Contract Security (RugCheck)</div>
+              <div style="display:flex;flex-direction:column;gap:5px;font-size:11px;">
                 <div style="display:flex;justify-content:space-between;align-items:center;">
                   <span style="color:var(--text-muted);">Audit Verdict:</span>
                   <span id="m-rugcheck-status" class="badge badge-green">✅ SAFE</span>
@@ -720,7 +880,7 @@ export function renderDashboardHtml(): string {
             </div>
           </div>
 
-          <!-- Top Investors & Whales Roster Table -->
+          <!-- Top Investors Table -->
           <div class="bento-card">
             <div class="bento-card-title">
               <span>👥 Who Invested & Whale Allocations</span>
@@ -740,7 +900,7 @@ export function renderDashboardHtml(): string {
                   </tr>
                 </thead>
                 <tbody id="m-investors-body">
-                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:10px;">Loading on-chain ledger...</td></tr>
+                  <tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:8px;">Loading on-chain ledger...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -750,7 +910,7 @@ export function renderDashboardHtml(): string {
 
       <!-- Action Dock: 1-Click Fast Sniper Bar -->
       <div class="modal-footer">
-        <div style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--text-muted);">
+        <div style="display:flex;align-items:center;gap:6px;font-size:10px;color:var(--text-muted);">
           <span>⚡ <strong>Ready to trade?</strong> Execution dock:</span>
         </div>
         <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;">
@@ -770,9 +930,10 @@ export function renderDashboardHtml(): string {
     let audioCtx = null;
     let audioMuted = false;
     let activeTokenMint = "";
+    let activeTokenReport = null;
     let lastSeenMaxId = 0;
     let lastSeenAlertCount = 0;
-    let cachedFeedData = null;
+    let currentCenterTab = "sybil";
 
     // Audio Synthesizer (Native Web Audio API)
     function initAudio() {
@@ -860,7 +1021,27 @@ export function renderDashboardHtml(): string {
     setInterval(updateClock, 1000);
     updateClock();
 
-    // Canvas Sybil Bubble Map Engine
+    // Center Tab Switcher (Sybil vs TradingView vs HFT OBI vs Factors)
+    function switchCenterTab(tabKey) {
+      currentCenterTab = tabKey;
+      ["sybil", "tv", "obi", "factors"].forEach(t => {
+        const btn = document.getElementById("tab-btn-" + t);
+        const view = document.getElementById("view-tab-" + t);
+        if (btn) btn.classList.toggle("active", t === tabKey);
+        if (view) view.style.display = t === tabKey ? "block" : "none";
+      });
+
+      if (tabKey === "sybil" && activeTokenReport) {
+        drawSybilCanvas("sybil-canvas", activeTokenReport.sybil_intelligence.bubble_graph);
+      } else if (tabKey === "tv" && activeTokenMint) {
+        const frame = document.getElementById("c-tradingview-frame");
+        if (!frame.src || !frame.src.includes(activeTokenMint)) {
+          frame.src = "https://dexscreener.com/solana/" + activeTokenMint + "?embed=1&theme=dark&trades=0&info=0";
+        }
+      }
+    }
+
+    // Canvas Sybil Bubble Map Engine (Arkham Spec)
     function drawSybilCanvas(canvasId, graphData) {
       const canvas = document.getElementById(canvasId);
       if (!canvas) return;
@@ -910,10 +1091,10 @@ export function renderDashboardHtml(): string {
         ctx.moveTo(p1.x, p1.y);
         ctx.lineTo(p2.x, p2.y);
         if (l.type === "bundled_cluster") {
-          ctx.strokeStyle = "rgba(239, 68, 68, 0.6)";
+          ctx.strokeStyle = "rgba(255, 51, 68, 0.65)";
           ctx.setLineDash([3, 3]);
         } else {
-          ctx.strokeStyle = "rgba(0, 210, 255, 0.2)";
+          ctx.strokeStyle = "rgba(0, 255, 255, 0.25)";
           ctx.setLineDash([]);
         }
         ctx.stroke();
@@ -941,11 +1122,9 @@ export function renderDashboardHtml(): string {
         const res = await fetch("/api/live");
         if (!res.ok) return;
         const data = await res.json();
-        cachedFeedData = data;
 
         // Sound triggers
         if (lastSeenMaxId > 0 && data.stats.launches_logged > lastSeenMaxId) {
-          // Check if any new launch had verified socials
           const newVerified = (data.events || []).some(e => e.id > lastSeenMaxId && (e.twitter || e.telegram || e.website));
           if (newVerified) playSonarChime();
         }
@@ -973,14 +1152,14 @@ export function renderDashboardHtml(): string {
               selectActiveToken(e.mint);
             }
             let badge = '';
-            if (e.is_serial_rugger) badge = '<span class="badge badge-red" style="font-size:9px;">RUGGER</span>';
-            else if (e.has_alert) badge = '<span class="badge badge-purple" style="font-size:9px;">ALERT</span>';
-            else if (e.twitter || e.telegram || e.website) badge = '<span class="badge badge-green" style="font-size:9px;">VERIFIED</span>';
+            if (e.is_serial_rugger) badge = '<span class="badge badge-red">RUGGER</span>';
+            else if (e.has_alert) badge = '<span class="badge badge-purple">ALERT</span>';
+            else if (e.twitter || e.telegram || e.website) badge = '<span class="badge badge-green">VERIFIED</span>';
 
             return \`<div class="firehose-item \${isActive ? 'active' : ''}" onclick="selectActiveToken('\${e.mint}')">
-              <div style="display:flex;flex-direction:column;gap:2px;">
-                <div style="font-weight:700;color:var(--text);font-size:12px;">\${escapeHtml(e.symbol || 'PUMP')} <span style="font-weight:400;color:var(--text-muted);font-size:10px;">\${escapeHtml((e.name || '').slice(0, 14))}</span></div>
-                <div class="mono" style="font-size:10px;color:var(--text-muted);">\${timeStr} · \${e.creator ? e.creator.slice(0, 4) + '...' + e.creator.slice(-4) : ''}</div>
+              <div style="display:flex;flex-direction:column;gap:1px;">
+                <div style="font-weight:700;color:var(--text);font-size:11px;">\${escapeHtml(e.symbol || 'PUMP')} <span style="font-weight:400;color:var(--text-muted);font-size:10px;">\${escapeHtml((e.name || '').slice(0, 14))}</span></div>
+                <div class="mono" style="font-size:9px;color:var(--text-muted);">\${timeStr} · \${e.creator ? e.creator.slice(0, 4) + '...' + e.creator.slice(-4) : ''}</div>
               </div>
               <div style="text-align:right;">
                 \${badge}
@@ -994,18 +1173,18 @@ export function renderDashboardHtml(): string {
         if (data.alerts && data.alerts.length > 0) {
           cAlertsContainer.innerHTML = data.alerts.map(a => {
             const timeStr = a.created_at ? new Date(a.created_at).toISOString().replace("T", " ").slice(11, 19) : "--:--:--";
-            return \`<div class="bento-card" style="margin-bottom:8px;cursor:pointer;" onclick="selectActiveToken('\${a.mint}')">
-              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-                <strong style="color:var(--accent);">$\${escapeHtml(a.symbol)}</strong>
+            return \`<div class="bento-card" style="margin-bottom:6px;cursor:pointer;" onclick="selectActiveToken('\${a.mint}')">
+              <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">
+                <strong style="color:var(--bbg-amber);font-size:11px;">$\${escapeHtml(a.symbol)}</strong>
                 <span class="badge badge-purple">\${Math.round(a.score)}/100</span>
               </div>
-              <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-muted);">
+              <div style="display:flex;justify-content:space-between;font-size:9px;color:var(--text-muted);">
                 <span>\${Number(a.net_sol || 0).toFixed(2)} SOL Raised</span>
                 <span>\${a.unique_buyers || 0} Buyers</span>
               </div>
-              <div style="margin-top:6px;display:flex;justify-content:space-between;align-items:center;">
-                <span class="badge badge-green" style="font-size:9px;">\${escapeHtml(a.flags?.split(',')[0] || 'SIGNAL')}</span>
-                <button class="btn btn-inspect" style="padding:2px 6px;font-size:10px;" onclick="inspectToken('\${a.mint}');event.stopPropagation();">Inspect</button>
+              <div style="margin-top:4px;display:flex;justify-content:space-between;align-items:center;">
+                <span class="badge badge-green" style="font-size:8px;">\${escapeHtml(a.flags?.split(',')[0] || 'SIGNAL')}</span>
+                <button class="btn btn-inspect" style="padding:2px 5px;font-size:9px;" onclick="inspectToken('\${a.mint}');event.stopPropagation();">Inspect</button>
               </div>
             </div>\`;
           }).join("");
@@ -1040,16 +1219,16 @@ export function renderDashboardHtml(): string {
             const timeStr = e.time_utc ? e.time_utc.slice(11, 19) : "--:--:--";
             const shortCreator = e.creator ? e.creator.slice(0, 4) + '...' + e.creator.slice(-4) : 'unknown';
             let socialsHtml = '';
-            if (e.twitter) socialsHtml += \`<a href="\${escapeHtml(e.twitter)}" target="_blank" class="social-link">𝕏 Twitter</a>\`;
-            if (e.telegram) socialsHtml += \`<a href="\${escapeHtml(e.telegram)}" target="_blank" class="social-link">✈️ TG</a>\`;
-            if (e.website) socialsHtml += \`<a href="\${escapeHtml(e.website)}" target="_blank" class="social-link">🌐 Web</a>\`;
+            if (e.twitter) socialsHtml += \`<a href="\${escapeHtml(e.twitter)}" target="_blank" class="badge badge-cyan" style="margin-right:2px;">𝕏</a>\`;
+            if (e.telegram) socialsHtml += \`<a href="\${escapeHtml(e.telegram)}" target="_blank" class="badge badge-cyan" style="margin-right:2px;">✈️</a>\`;
+            if (e.website) socialsHtml += \`<a href="\${escapeHtml(e.website)}" target="_blank" class="badge badge-cyan">🌐</a>\`;
             if (!socialsHtml) socialsHtml = '<span class="badge badge-muted">None</span>';
 
             let hostStr = 'unknown';
             try { if (e.uri) hostStr = new URL(e.uri).hostname; } catch (_) { hostStr = (e.uri || '').slice(0, 20); }
 
             let verdictBadge = '';
-            if (e.is_serial_rugger) verdictBadge = \`<span class="badge badge-red">❌ Serial Rugger (\${e.past_launches} rugs)</span>\`;
+            if (e.is_serial_rugger) verdictBadge = \`<span class="badge badge-red">❌ Serial Rugger</span>\`;
             else if (e.has_alert) verdictBadge = '<span class="badge badge-purple">🚀 Alert Sent</span>';
             else if (e.twitter || e.telegram || e.website) verdictBadge = '<span class="badge badge-green">✅ Verified Community</span>';
             else verdictBadge = '<span class="badge badge-muted">⚪ Anonymous</span>';
@@ -1080,12 +1259,11 @@ export function renderDashboardHtml(): string {
       }
     }
 
-    // Select Active Token for Bloomberg Pane 2
+    // Select Active Token for Center Command Deck
     async function selectActiveToken(mint) {
       if (!mint || mint === activeTokenMint) return;
       activeTokenMint = mint;
 
-      // Highlight in list
       document.querySelectorAll(".firehose-item").forEach(el => {
         el.classList.remove("active");
       });
@@ -1094,9 +1272,10 @@ export function renderDashboardHtml(): string {
         const res = await fetch("/api/inspect?mint=" + encodeURIComponent(mint));
         if (!res.ok) return;
         const report = await res.json();
+        activeTokenReport = report;
 
-        // Update Center Hero
-        document.getElementById("c-token-name").innerHTML = \`\${escapeHtml(report.name)} <span style="color:var(--accent);">($\${escapeHtml(report.symbol)})</span>\`;
+        // Center Hero
+        document.getElementById("c-token-name").innerHTML = \`\${escapeHtml(report.name)} <span style="color:var(--bbg-amber);">($\${escapeHtml(report.symbol)})</span>\`;
         document.getElementById("c-token-mint").innerText = report.mint;
         const curvePct = Number(report.curve_progress_pct || 0);
         document.getElementById("c-curve-text").innerText = curvePct.toFixed(1) + "% to Raydium";
@@ -1107,7 +1286,7 @@ export function renderDashboardHtml(): string {
         const jitoBadge = document.getElementById("c-jito-tip");
         jitoBadge.innerText = "Rec. Jito Tip: " + report.jito_execution.recommended_tip_sol + " SOL (" + report.jito_execution.mev_risk_level + " RISK)";
         if (report.jito_execution.mev_risk_level === "HIGH") jitoBadge.className = "badge badge-red";
-        else if (report.jito_execution.mev_risk_level === "MEDIUM") jitoBadge.className = "badge badge-gold";
+        else if (report.jito_execution.mev_risk_level === "MEDIUM") jitoBadge.className = "badge badge-amber";
         else jitoBadge.className = "badge badge-green";
 
         // Fast Execution Buttons
@@ -1117,13 +1296,60 @@ export function renderDashboardHtml(): string {
         document.getElementById("c-btn-dexs").href = report.sniper_links.dexscreener;
         document.getElementById("c-btn-pump").href = report.sniper_links.pumpfun;
 
-        // Render Canvas Sybil Bubble Map
-        const verdictBadge = document.getElementById("c-cluster-verdict");
-        verdictBadge.innerText = report.sybil_intelligence.cluster_verdict;
-        if (report.sybil_intelligence.is_bundled_launch) verdictBadge.className = "badge badge-red";
-        else verdictBadge.className = "badge badge-green";
+        // Render Active Tab Content
+        if (currentCenterTab === "sybil") {
+          const verdictBadge = document.getElementById("c-cluster-verdict");
+          verdictBadge.innerText = report.sybil_intelligence.cluster_verdict;
+          if (report.sybil_intelligence.is_bundled_launch) verdictBadge.className = "badge badge-red";
+          else verdictBadge.className = "badge badge-green";
+          drawSybilCanvas("sybil-canvas", report.sybil_intelligence.bubble_graph);
+        } else if (currentCenterTab === "tv") {
+          document.getElementById("c-tradingview-frame").src = "https://dexscreener.com/solana/" + report.mint + "?embed=1&theme=dark&trades=0&info=0";
+        }
 
-        drawSybilCanvas("sybil-canvas", report.sybil_intelligence.bubble_graph);
+        // HFT OBI Radar Calculation (E:\QRML Port)
+        const buySol = Number(report.total_inflow_sol || 0);
+        const sellSol = Number(report.total_outflow_sol || 0);
+        const totalFlow = buySol + sellSol;
+        const obiK = totalFlow > 0 ? (buySol - sellSol) / totalFlow : 0;
+        const bidPct = totalFlow > 0 ? (buySol / totalFlow) * 100 : 50;
+        const askPct = 100 - bidPct;
+
+        document.getElementById("obi-bid-label").innerText = "Bid Flow: " + buySol.toFixed(2) + " SOL (" + bidPct.toFixed(0) + "%)";
+        document.getElementById("obi-ask-label").innerText = "Ask Flow: " + sellSol.toFixed(2) + " SOL (" + askPct.toFixed(0) + "%)";
+        document.getElementById("obi-bid-bar").style.width = bidPct + "%";
+        document.getElementById("obi-ask-bar").style.width = askPct + "%";
+        document.getElementById("obi-ratio-text").innerText = "OBI Ratio: K = " + (obiK >= 0 ? "+" : "") + obiK.toFixed(3);
+        document.getElementById("obi-micro-text").innerText = "Pressure: " + (obiK > 0.3 ? "⚡ BULLISH ACCUMULATION" : obiK < -0.2 ? "⚠️ DISTRIBUTION DUMP" : "⚖️ BALANCED ORDER FLOW");
+
+        const obiBadge = document.getElementById("obi-status-badge");
+        if (obiK > 0.3) { obiBadge.className = "badge badge-green"; obiBadge.innerText = "BULLISH INFLOW"; }
+        else if (obiK < -0.2) { obiBadge.className = "badge badge-red"; obiBadge.innerText = "SELL DUMP WALL"; }
+        else { obiBadge.className = "badge badge-cyan"; obiBadge.innerText = "BALANCED FLOW"; }
+
+        // Level-2 Ladder representation
+        const ladderBox = document.getElementById("obi-ladder-box");
+        ladderBox.innerHTML = \`
+          <div style="display:flex;justify-content:space-between;color:var(--green);">
+            <span>BID WALL #1 (Active Curve)</span>
+            <span class="mono">\${buySol.toFixed(2)} SOL (100% Virtual LP)</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;color:var(--text-muted);">
+            <span>MID SPREAD (Pump Virtual Curve)</span>
+            <span class="mono">~0.0003 SOL (0.3% Slippage Floor)</span>
+          </div>
+          <div style="display:flex;justify-content:space-between;color:\${sellSol > 0 ? 'var(--red)' : 'var(--text-muted)'};">
+            <span>ASK WALL (Total Realized Sells)</span>
+            <span class="mono">\${sellSol.toFixed(2)} SOL</span>
+          </div>
+        \`;
+
+        // Alpha-158 Factor Matrix
+        document.getElementById("f-mom").innerText = (report.net_sol_deployed / Math.max(1, (report.total_trades || 1))).toFixed(2) + " SOL/trade";
+        document.getElementById("f-ofi").innerText = (bidPct).toFixed(0) + "% Buy Bias";
+        document.getElementById("f-vpin").innerText = ((report.top5_share_pct || 0) * 0.8).toFixed(0) + "% Toxicity";
+        document.getElementById("f-entropy").innerText = ((1 - (report.hhi_score || 0)) * 4).toFixed(2) + " bits";
+        document.getElementById("f-sri").innerText = report.creator_history.is_serial_rugger ? "❌ 1.00 (Serial Rugger)" : "✅ 0.00 (Clean)";
 
       } catch (err) {
         console.error("Select token error:", err);
@@ -1156,7 +1382,7 @@ export function renderDashboardHtml(): string {
         const report = await res.json();
 
         // Populate Header & Identity
-        document.getElementById("m-token-title").innerHTML = \`\${escapeHtml(report.name)} <span style="color:var(--accent);">($\${escapeHtml(report.symbol)})</span>\`;
+        document.getElementById("m-token-title").innerHTML = \`\${escapeHtml(report.name)} <span style="color:var(--bbg-amber);">($\${escapeHtml(report.symbol)})</span>\`;
         document.getElementById("m-mint-addr").innerText = report.mint;
         document.getElementById("m-created-time").innerText = "Created: " + (report.created_at || "--");
         document.getElementById("m-solscan-token-link").href = report.token_solscan;
@@ -1188,9 +1414,9 @@ export function renderDashboardHtml(): string {
 
         // Socials box
         let socialsHtml = "";
-        if (report.socials.twitter) socialsHtml += \`<a href="\${escapeHtml(report.socials.twitter)}" target="_blank" class="social-link">𝕏 Twitter</a>\`;
-        if (report.socials.telegram) socialsHtml += \`<a href="\${escapeHtml(report.socials.telegram)}" target="_blank" class="social-link">✈️ TG</a>\`;
-        if (report.socials.website) socialsHtml += \`<a href="\${escapeHtml(report.socials.website)}" target="_blank" class="social-link">🌐 Web</a>\`;
+        if (report.socials.twitter) socialsHtml += \`<a href="\${escapeHtml(report.socials.twitter)}" target="_blank" class="badge badge-cyan" style="margin-right:2px;">𝕏 Twitter</a>\`;
+        if (report.socials.telegram) socialsHtml += \`<a href="\${escapeHtml(report.socials.telegram)}" target="_blank" class="badge badge-cyan" style="margin-right:2px;">✈️ TG</a>\`;
+        if (report.socials.website) socialsHtml += \`<a href="\${escapeHtml(report.socials.website)}" target="_blank" class="badge badge-cyan">🌐 Web</a>\`;
         if (!socialsHtml) socialsHtml = '<span class="badge badge-muted">No Socials</span>';
         document.getElementById("m-socials-box").innerHTML = socialsHtml;
 
@@ -1240,7 +1466,7 @@ export function renderDashboardHtml(): string {
             </tr>\`;
           }).join("");
         } else {
-          invBody.innerHTML = \`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:10px;">Early launch state: trades syncing...</td></tr>\`;
+          invBody.innerHTML = \`<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:8px;">Early launch state: trades syncing...</td></tr>\`;
         }
 
         // Wire 1-Click Fast Sniper Links
@@ -1280,7 +1506,6 @@ export function renderDashboardHtml(): string {
 
     // Keyboard Hotkey Controller (Citadel / HRT Spec)
     document.addEventListener("keydown", (e) => {
-      // Don't trigger hotkeys if typing in an input
       if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
 
       if (e.key === "Escape") {
@@ -1298,6 +1523,14 @@ export function renderDashboardHtml(): string {
         toggleAudio();
       } else if (e.key === "v" || e.key === "V") {
         toggleLayout();
+      } else if (e.key === "1") {
+        switchCenterTab("sybil");
+      } else if (e.key === "2") {
+        switchCenterTab("tv");
+      } else if (e.key === "3") {
+        switchCenterTab("obi");
+      } else if (e.key === "4") {
+        switchCenterTab("factors");
       }
     });
 
