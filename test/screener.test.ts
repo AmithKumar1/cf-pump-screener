@@ -24,7 +24,7 @@ import {
   RAYDIUM_MIGRATION_SOL,
   KNOWN_ALPHA_WALLETS,
 } from "../src/screener.ts";
-import { formatResearchCard } from "../src/telegram.ts";
+import { formatResearchCard, formatVerifiedLaunchCard } from "../src/telegram.ts";
 import type { TradePoint, LaunchMetadata } from "../src/types.ts";
 
 describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", () => {
@@ -559,5 +559,28 @@ describe("Quantitative Screener, Predictive Models & Cutting-Edge Forensics", ()
     assert.ok(card.includes("Elite Quant & Forensic Intelligence:"));
     assert.ok(card.includes("MEV Forensics:"));
     assert.ok(card.includes("Creator DNA: Serial Rug Index:"));
+  });
+
+  it("Stage 1 Pipeline: formatVerifiedLaunchCard correctly structures early creation intelligence", () => {
+    const card = formatVerifiedLaunchCard(
+      "5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump",
+      "ALICE",
+      "Alice In Chains",
+      "9xQeWvG816bUx9EPjHmaT23yvVM2ZWbrrpZb9PusVFin",
+      85,
+      "https://x.com/alice",
+      "https://t.me/alice",
+      "https://alice.fun",
+      0.15,
+      false,
+      0.0,
+      true
+    );
+
+    assert.ok(card.includes("STAGE 1 [VERIFIED CREATION]"));
+    assert.ok(card.includes("https://x.com/alice"));
+    assert.ok(card.includes("Organic Viral Culture"));
+    assert.ok(card.includes("Tracked Alpha Wallet"));
+    assert.ok(card.includes("https://dexscreener.com/solana/5TXLJX6DdbfbuNLWG4LGwqgiQxaz6mPWv1KAH4oSpump"));
   });
 });

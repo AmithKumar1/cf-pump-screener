@@ -1,7 +1,17 @@
 import type { Env, LaunchMetadata, TradePoint } from "./types.ts";
-import { calculateTokenMetrics, scoreTokenCandidate } from "./screener.ts";
-import { formatResearchCard, sendTelegramMessage } from "./telegram.ts";
-import { runHealthCheck } from "./monitor.ts";
+import {
+  calculateTokenMetrics,
+  scoreTokenCandidate,
+  analyzeMemeNarrative,
+  computeSerialRugIndex,
+  KNOWN_ALPHA_WALLETS,
+} from "./screener.ts";
+import {
+  formatResearchCard,
+  formatVerifiedLaunchCard,
+  sendTelegramMessage,
+} from "./telegram.ts";
+import { runHealthCheck, monitorActiveWatchlist } from "./monitor.ts";
 import { parseHeliusCreate, parseHeliusSwap } from "./parser.ts";
 import { fetchTokenMetadata } from "./metadata.ts";
 
@@ -208,11 +218,13 @@ export default {
    */
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(runHealthCheck(env));
+    ctx.waitUntil(monitorActiveWatchlist(env));
   },
 };
 
 /**
  * Asynchronously fetch and store off-chain social metadata for a newly launched token.
+ * Triggers Stage 1 [VERIFIED LAUNCH] intelligence alert when high-quality community links are discovered.
  */
 export async function resolveMetadataForToken(mint: string, uri: string, env: Env): Promise<void> {
   try {
@@ -241,6 +253,95 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
         mint
       )
       .run();
+
+    // Stage 1: Verified Launch Evaluation
+    const hasSocials = Boolean(
+      (meta.twitter && meta.twitter.trim() !== "") ||
+      (meta.telegram && meta.telegram.trim() !== "") ||
+      (meta.website && meta.website.trim() !== "")
+    );
+
+    if (hasSocials) {
+      // Fetch creator and name from events table
+      const eventRow = await env.DB.prepare(
+        "SELECT creator, name, symbol FROM events WHERE mint = ? AND kind = 'new_token'"
+      )
+        .bind(mint)
+        .first<{ creator: string; name: string; symbol: string }>();
+
+      if (eventRow) {
+        const creator = eventRow.creator;
+        const tokenName = meta.name || eventRow.name || "Token";
+        const tokenSymbol = meta.symbol || eventRow.symbol || "PUMP";
+
+        // 1. Memetic NLP Narrative
+        const memeAnalysis = analyzeMemeNarrative(
+          tokenName,
+          tokenSymbol,
+          meta.description || ""
+        );
+
+        // 2. Creator SRI (Past history in local D1)
+        const { results: pastEvents } = await env.DB.prepare(
+          "SELECT mint FROM events WHERE creator = ?"
+        )
+          .bind(creator)
+          .all<{ mint: string }>();
+
+        const sri = computeSerialRugIndex(pastEvents.length, 0);
+
+        // 3. Smart Money check
+        const isSmartCreator = KNOWN_ALPHA_WALLETS.has(creator);
+
+        // Quality Gate: Reject obvious AI Slop with low scores or chronic serial ruggers
+        if (!sri.is_serial_rugger && !memeAnalysis.is_ai_slop) {
+          // Check if an alert was already triggered for this mint
+          const existingAlert = await env.DB.prepare(
+            "SELECT id FROM alerts WHERE mint = ?"
+          )
+            .bind(mint)
+            .first();
+
+          if (!existingAlert) {
+            let stage1Score = 55;
+            if (meta.twitter) stage1Score += 10;
+            if (meta.telegram) stage1Score += 10;
+            if (meta.website) stage1Score += 5;
+            if (isSmartCreator) stage1Score += 15;
+            if (!memeAnalysis.is_ai_slop) stage1Score += 5;
+            if (sri.serial_rug_index === 0) stage1Score += 5;
+            stage1Score = Math.min(100, stage1Score);
+
+            // Record alert in D1 to prevent duplicates
+            await env.DB.prepare(
+              `INSERT INTO alerts (mint, symbol, score, net_sol, unique_buyers, buyer_hhi, flags, created_at)
+               VALUES (?, ?, ?, 0, 1, 0, 'STAGE_1_VERIFIED_LAUNCH', ?)`
+            )
+              .bind(mint, tokenSymbol, stage1Score, Date.now())
+              .run();
+
+            // Dispatch immediately to Telegram (@memcoinhome_bot)
+            if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+              const card = formatVerifiedLaunchCard(
+                mint,
+                tokenSymbol,
+                tokenName,
+                creator,
+                stage1Score,
+                meta.twitter ?? null,
+                meta.telegram ?? null,
+                meta.website ?? null,
+                memeAnalysis.ai_slop_score,
+                memeAnalysis.is_ai_slop,
+                sri.serial_rug_index,
+                isSmartCreator
+              );
+              await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, card);
+            }
+          }
+        }
+      }
+    }
   } catch (err: unknown) {
     // Non-fatal background fetch error
     console.error(`Metadata resolution failed for mint ${mint}:`, err);

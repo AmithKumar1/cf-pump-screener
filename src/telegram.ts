@@ -107,3 +107,52 @@ export function formatResearchCard(
     `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
   ].join("\n");
 }
+
+export function formatVerifiedLaunchCard(
+  mint: string,
+  symbol: string,
+  name: string,
+  creator: string,
+  score: number,
+  twitter: string | null,
+  telegram: string | null,
+  website: string | null,
+  aiSlopScore: number,
+  isAiSlop: boolean,
+  sriScore: number,
+  isSmartMoney: boolean
+): string {
+  const socials: string[] = [];
+  if (twitter) socials.push(`• Twitter/X: ${twitter}`);
+  if (telegram) socials.push(`• Telegram: ${telegram}`);
+  if (website) socials.push(`• Website: ${website}`);
+  const socialsStr = socials.length > 0 ? socials.join("\n  ") : "• No links provided";
+
+  const memeTag = isAiSlop ? "⚠️ AI Slop / Low Conviction" : "🔥 Organic Viral Culture";
+  const smartMoneyTag = isSmartMoney
+    ? "🎯 Tracked Alpha Wallet (Smart Whale)"
+    : "Standard Wallet";
+
+  return [
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `💎 PUMP.FUN VERIFIED LAUNCH: ${name} ($${symbol})`,
+    `Stage: STAGE 1 [VERIFIED CREATION] | Score: ${score.toFixed(0)}/100`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+    `📍 Mint: ${mint}`,
+    `👤 Creator: ${creator.slice(0, 8)}...${creator.slice(-4)}`,
+    ``,
+    `🌐 Verified Community Links:`,
+    `  ${socialsStr}`,
+    ``,
+    `🧬 Memetic & Creator Forensics:`,
+    `  • AI Slop Forensics: ${(aiSlopScore * 100).toFixed(0)}% slop probability (${memeTag})`,
+    `  • Creator Serial Rug Index (SRI): ${sriScore.toFixed(2)} ${sriScore === 0 ? "(Clean History)" : sriScore > 0.5 ? "(⚠️ High Rug Risk)" : "(Moderate Risk)"}`,
+    `  • Alpha Tracking: ${smartMoneyTag}`,
+    ``,
+    `📈 Real-Time Charts:`,
+    `  • https://dexscreener.com/solana/${mint}`,
+    `  • https://pump.fun/coin/${mint}`,
+    `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`,
+  ].join("\n");
+}
+
