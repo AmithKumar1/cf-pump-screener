@@ -452,7 +452,7 @@ export async function getDetailedTokenInspection(
     fetchLiveSolPrice(),
   ]);
 
-  const solUsd = solPriceInfo.price;
+  const solUsd = solPriceInfo.price || 85.0;
 
   // Bonding Curve: Standard Pump.fun curve requires ~85 SOL to migrate to PumpSwap AMM
   const GRADUATION_SOL_TARGET = 85.0;
@@ -671,42 +671,94 @@ async function fetchDexScreenerData(
   }
 }
 
-let cachedSolPrice: { price: number; timestamp: number } = { price: 85.00, timestamp: 0 };
+let cachedSolPrice: { price: number | null; timestamp: number } = { price: null, timestamp: 0 };
+let cachedMacroPrices: {
+  sol: number | null;
+  btc: number | null;
+  eth: number | null;
+  timestamp: number;
+} = {
+  sol: null,
+  btc: null,
+  eth: null,
+  timestamp: 0,
+};
 
-export async function fetchLiveSolPrice(): Promise<{ price: number; is_live: boolean; updated_at: number }> {
+export async function fetchLiveMacroPrices(): Promise<{
+  sol: number | null;
+  btc: number | null;
+  eth: number | null;
+  is_live: boolean;
+  is_stale: boolean;
+  updated_at: number;
+}> {
   const now = Date.now();
-  if (now - cachedSolPrice.timestamp < 60_000 && cachedSolPrice.timestamp > 0) {
-    return { price: cachedSolPrice.price, is_live: true, updated_at: cachedSolPrice.timestamp };
+  if (
+    now - cachedMacroPrices.timestamp < 30_000 &&
+    cachedMacroPrices.timestamp > 0 &&
+    cachedMacroPrices.sol !== null
+  ) {
+    return { ...cachedMacroPrices, is_live: true, is_stale: false, updated_at: cachedMacroPrices.timestamp };
   }
   try {
-    const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=SOLUSDT", {
+    const res = await fetch(
+      'https://api.binance.com/api/v3/ticker/price?symbols=[%22SOLUSDT%22,%22BTCUSDT%22,%22ETHUSDT%22]',
+      {
+        headers: { Accept: "application/json" },
+        signal: AbortSignal.timeout(2000),
+      }
+    );
+    if (res.ok) {
+      const data = await res.json<Array<{ symbol: string; price: string }>>();
+      let sol = cachedMacroPrices.sol;
+      let btc = cachedMacroPrices.btc;
+      let eth = cachedMacroPrices.eth;
+      for (const item of data) {
+        const val = parseFloat(item.price);
+        if (!isNaN(val) && val > 0) {
+          if (item.symbol === "SOLUSDT") sol = Number(val.toFixed(2));
+          if (item.symbol === "BTCUSDT") btc = Math.round(val);
+          if (item.symbol === "ETHUSDT") eth = Math.round(val);
+        }
+      }
+      cachedMacroPrices = { sol, btc, eth, timestamp: now };
+      if (sol !== null) cachedSolPrice = { price: sol, timestamp: now };
+      return { sol, btc, eth, is_live: true, is_stale: false, updated_at: now };
+    }
+  } catch {}
+
+  // Fallback for SOL via DexScreener if Binance fails
+  try {
+    const dRes = await fetch("https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112", {
       headers: { Accept: "application/json" },
       signal: AbortSignal.timeout(1500),
     });
-    if (res.ok) {
-      const data = await res.json<{ price?: string }>();
-      const p = parseFloat(data.price || "");
+    if (dRes.ok) {
+      const dJson = await dRes.json<any>();
+      const p = parseFloat(dJson.pairs?.[0]?.priceUsd || "");
       if (!isNaN(p) && p > 10 && p < 2000) {
-        cachedSolPrice = { price: Number(p.toFixed(2)), timestamp: now };
-        return { price: cachedSolPrice.price, is_live: true, updated_at: now };
+        const sol = Number(p.toFixed(2));
+        cachedMacroPrices.sol = sol;
+        cachedMacroPrices.timestamp = now;
+        cachedSolPrice = { price: sol, timestamp: now };
       }
     }
-  } catch {
-    // Fallback to DexScreener Wrapped SOL
-    try {
-      const dRes = await fetch("https://api.dexscreener.com/latest/dex/tokens/So11111111111111111111111111111111111111112", {
-        headers: { Accept: "application/json" },
-        signal: AbortSignal.timeout(1500),
-      });
-      if (dRes.ok) {
-        const dJson = await dRes.json<any>();
-        const p = parseFloat(dJson.pairs?.[0]?.priceUsd || "");
-        if (!isNaN(p) && p > 10 && p < 2000) {
-          cachedSolPrice = { price: Number(p.toFixed(2)), timestamp: now };
-          return { price: cachedSolPrice.price, is_live: true, updated_at: now };
-        }
-      }
-    } catch {}
-  }
-  return { price: cachedSolPrice.price, is_live: cachedSolPrice.timestamp > 0, updated_at: cachedSolPrice.timestamp || now };
+  } catch {}
+
+  const hasPriorData = cachedMacroPrices.timestamp > 0 && cachedMacroPrices.sol !== null;
+  const isStale = hasPriorData && now - cachedMacroPrices.timestamp > 90_000;
+
+  return {
+    sol: cachedMacroPrices.sol,
+    btc: cachedMacroPrices.btc,
+    eth: cachedMacroPrices.eth,
+    is_live: hasPriorData && !isStale,
+    is_stale: isStale,
+    updated_at: cachedMacroPrices.timestamp || 0,
+  };
+}
+
+export async function fetchLiveSolPrice(): Promise<{ price: number | null; is_live: boolean; updated_at: number }> {
+  const macro = await fetchLiveMacroPrices();
+  return { price: macro.sol, is_live: macro.is_live, updated_at: macro.updated_at };
 }

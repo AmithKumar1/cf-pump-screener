@@ -174,7 +174,10 @@ export async function monitorActiveWatchlist(env: Env): Promise<void> {
             .bind(mint, symbol, approxNetSol, buys, Date.now())
             .run();
 
-          await sendTelegramMessage(token, chatId, card);
+          const isAlertsPaused = env.PAUSE_TELEGRAM_ALERTS === "true" || env.PAUSE_TELEGRAM_ALERTS === "1";
+          if (!isAlertsPaused) {
+            await sendTelegramMessage(token, chatId, card);
+          }
         }
       }
     }

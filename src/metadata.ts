@@ -14,6 +14,18 @@ export interface ParsedSocials {
   error?: string;
 }
 
+/**
+ * Production Canonical Metadata UPDATE SQL statement.
+ * Strictly maintains 6 placeholders for 6 bound parameters.
+ */
+export const METADATA_UPDATE_SQL = `UPDATE events
+       SET twitter = ?,
+           telegram = ?,
+           website = ?,
+           name = COALESCE(NULLIF(name, ''), ?),
+           symbol = COALESCE(NULLIF(symbol, ''), ?)
+       WHERE mint = ? AND kind = 'new_token'`;
+
 const PRIVATE_IP_REGEX = /^(127\.|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[0-1])\.|169\.254\.|0\.|::1|fe80:)/i;
 
 /**

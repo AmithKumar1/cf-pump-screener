@@ -633,13 +633,13 @@ export function renderDashboardHtml(): string {
     <!-- Live Macro Ticker Tape (E:\QRML Port) -->
     <div class="ticker-tape">
       <div class="ticker-item"><span class="ticker-name">SOL</span> <span class="ticker-up" id="t-sol">$--.--</span></div>
-      <div class="ticker-item"><span class="ticker-name">BTC</span> <span class="ticker-up" id="t-btc">$89,450 (+2.1%)</span></div>
-      <div class="ticker-item"><span class="ticker-name">GAS</span> <span class="ticker-neutral">5k lamports</span></div>
-      <div class="ticker-item"><span class="ticker-name">JITO TIP</span> <span class="ticker-up">0.003 SOL</span></div>
-      <div class="ticker-item"><span class="ticker-name">VELOCITY</span> <span class="ticker-neutral" id="t-rate">~60/min</span></div>
-      <div class="ticker-item"><span class="ticker-name">GRAD RATE</span> <span class="ticker-neutral">1.4%</span></div>
-      <div class="ticker-item"><span class="ticker-name">MEV GUARD</span> <span class="ticker-up">ACTIVE</span></div>
-      <div class="ticker-item"><span class="ticker-name">FEED</span> <span class="ticker-up">100% OK</span></div>
+      <div class="ticker-item"><span class="ticker-name">BTC</span> <span class="ticker-up" id="t-btc">$--,---</span></div>
+      <div class="ticker-item"><span class="ticker-name">ETH</span> <span class="ticker-up" id="t-eth">$--,---</span></div>
+      <div class="ticker-item"><span class="ticker-name">GAS</span> <span class="ticker-neutral" id="t-gas">--</span></div>
+      <div class="ticker-item"><span class="ticker-name">JITO TIP</span> <span class="ticker-neutral" id="t-tip">--</span></div>
+      <div class="ticker-item"><span class="ticker-name">VELOCITY</span> <span class="ticker-neutral" id="t-rate">0/min</span></div>
+      <div class="ticker-item"><span class="ticker-name">GRAD RATE (est)</span> <span class="ticker-neutral" id="t-grad">-- (est)</span></div>
+      <div class="ticker-item"><span class="ticker-name">FEED</span> <span class="ticker-neutral" id="t-feed">--</span></div>
     </div>
 
     <div class="top-controls">
@@ -653,13 +653,13 @@ export function renderDashboardHtml(): string {
   </div>
 
   <!-- ======================================================== -->
-  <!-- TOP BAR ROW 2: Telemetry KPIs & Quant Hotkeys Strip      -->
+  <!-- TOP BAR ROW 2: Telemetry KPIs & Bloomberg Command Bar    -->
   <!-- ======================================================== -->
   <div class="top-bar-row2">
     <div class="telemetry-pills">
       <span class="kpi-pill">LAUNCHES: <b id="metric-launches">--</b></span>
       <span style="color:#202c38;">|</span>
-      <span class="kpi-pill">INGESTION: <span class="badge badge-cyan" id="metric-rate">~60/min</span></span>
+      <span class="kpi-pill">VELOCITY: <span class="badge badge-cyan" id="metric-rate">--/min</span></span>
       <span style="color:#202c38;">|</span>
       <span class="kpi-pill">VERIFIED: <span class="badge badge-green" id="metric-socials">--</span></span>
       <span style="color:#202c38;">|</span>
@@ -668,15 +668,21 @@ export function renderDashboardHtml(): string {
       <span class="kpi-pill">DISCOVERY SIGNALS: <span class="badge badge-purple" id="metric-alerts">--</span></span>
     </div>
 
+    <!-- Bloomberg Institutional Command Bar (<GO>) -->
+    <div class="bbg-command-wrapper" style="display:flex;align-items:center;gap:4px;flex:1;max-width:380px;margin:0 10px;">
+      <span style="color:var(--bbg-amber);font-weight:700;font-size:9.5px;letter-spacing:0.5px;">CMD &gt;</span>
+      <input type="text" id="bbg-cmd-input" placeholder="TICKER FUNCTION &lt;GO&gt; (e.g. PEPE SYBIL, SOL MEMO)" 
+        onkeydown="handleBbgCommand(event)"
+        style="background:#04070a;border:1px solid #1a2a3a;border-radius:2px;color:var(--bbg-amber);font-family:var(--font-mono);font-size:9px;padding:2px 6px;width:100%;outline:none;text-transform:uppercase;" />
+      <button class="btn btn-inspect" onclick="executeBbgCommand()" style="padding:2px 6px;font-size:8px;font-weight:700;background:var(--bbg-amber);color:#000;border:none;cursor:pointer;">&lt;GO&gt;</button>
+    </div>
+
     <div class="hotkeys-strip">
       <span style="color:#64748b;margin-right:2px;">HOTKEYS:</span>
+      <span><span class="hotkey-pill">/</span>CMD</span>
       <span><span class="hotkey-pill">SPACE</span>Inspect</span>
-      <span><span class="hotkey-pill">P</span>Photon</span>
-      <span><span class="hotkey-pill">B</span>BullX</span>
-      <span><span class="hotkey-pill">G</span>GMGN</span>
-      <span><span class="hotkey-pill">M</span>Mute</span>
-      <span><span class="hotkey-pill">T</span>Theme</span>
       <span><span class="hotkey-pill">1-5</span>Tabs</span>
+      <span><span class="hotkey-pill">ESC</span>Clear</span>
     </div>
   </div>
 
@@ -1286,6 +1292,113 @@ export function renderDashboardHtml(): string {
     setInterval(updateClock, 1000);
     updateClock();
 
+    // Bloomberg Terminal Command Bar (<GO>, ESC, Hotkeys)
+    function handleBbgCommand(e) {
+      if (e.key === "Enter") {
+        executeBbgCommand();
+      } else if (e.key === "Escape") {
+        clearBbgCommand();
+      }
+    }
+
+    function clearBbgCommand() {
+      const input = document.getElementById("bbg-cmd-input");
+      if (input) {
+        input.value = "";
+        input.blur();
+      }
+      streamSearchQuery = "";
+      renderFirehoseItems();
+    }
+
+    function executeBbgCommand() {
+      const input = document.getElementById("bbg-cmd-input");
+      if (!input) return;
+      const cmd = input.value.trim().toUpperCase();
+      if (!cmd) return;
+      playTactileClick();
+
+      // Split command into parts: e.g. "PEPE SYBIL", "SOL MEMO", "BONK TV"
+      const parts = cmd.split(/\s+/);
+      const ticker = parts[0];
+      const fn = parts[1] || "";
+
+      // Find token matching ticker / mint prefix
+      const match = rawEventsList.find(e => 
+        (e.symbol || "").toUpperCase() === ticker ||
+        (e.name || "").toUpperCase().includes(ticker) ||
+        (e.mint || "").toUpperCase().startsWith(ticker)
+      );
+
+      if (match) {
+        selectActiveToken(match.mint);
+
+        // Execute function tab switch if requested
+        if (fn === "SYBIL" || fn === "1" || fn === "RADAR") {
+          switchCenterTab("sybil");
+        } else if (fn === "TIMELINE" || fn === "2" || fn === "TIME") {
+          switchCenterTab("timeline");
+        } else if (fn === "TV" || fn === "3" || fn === "CHART") {
+          switchCenterTab("tv");
+        } else if (fn === "WHALES" || fn === "4" || fn === "WHALE") {
+          switchCenterTab("whales");
+        } else if (fn === "MEMO" || fn === "5" || fn === "DOSSIER" || fn === "INSPECT") {
+          switchCenterTab("memo");
+        }
+      } else {
+        // Fallback: Filter stream
+        streamSearchQuery = ticker.toLowerCase();
+        renderFirehoseItems();
+      }
+    }
+
+    // Global Bloomberg Keyboard Handler
+    window.addEventListener("keydown", (e) => {
+      const activeEl = document.activeElement;
+      const tag = activeEl?.tagName?.toLowerCase();
+      if (tag === "input" || tag === "textarea") {
+        if (e.key === "Escape") {
+          clearBbgCommand();
+        }
+        return;
+      }
+
+      if (e.key === "/" || e.key === "F1") {
+        e.preventDefault();
+        const cmdInput = document.getElementById("bbg-cmd-input");
+        if (cmdInput) {
+          cmdInput.focus();
+          cmdInput.select();
+        }
+        return;
+      }
+
+      if (e.key === "Escape") {
+        clearBbgCommand();
+        return;
+      }
+
+      if (e.key >= "1" && e.key <= "5") {
+        const tabs = ["sybil", "timeline", "tv", "whales", "memo"];
+        switchCenterTab(tabs[parseInt(e.key) - 1]);
+        return;
+      }
+
+      if (e.key.toLowerCase() === "t") {
+        cycleTheme();
+        return;
+      }
+      if (e.key.toLowerCase() === "m") {
+        toggleAudio();
+        return;
+      }
+      if (e.key === " ") {
+        e.preventDefault();
+        if (activeTokenMint) inspectToken(activeTokenMint);
+        return;
+      }
+    });
+
     // Stream Search & Category Filter
     function handleStreamFilter() {
       streamSearchQuery = (document.getElementById("stream-search").value || "").trim().toLowerCase();
@@ -1853,7 +1966,10 @@ export function renderDashboardHtml(): string {
         rawEventsList = data.events || [];
 
         const latestEvent = rawEventsList[0];
-        const latestTime = latestEvent?.time_utc ? new Date(latestEvent.time_utc).getTime() : Date.now();
+        let latestTime = Date.now();
+        if (latestEvent?.time_utc) {
+          latestTime = new Date(latestEvent.time_utc).getTime();
+        }
         const lagSec = Math.max(0, Math.round((Date.now() - latestTime) / 1000));
         document.getElementById("latency-tag").innerText = "Ping: " + latency + "ms · Lag: ~" + lagSec + "s";
 
@@ -1868,10 +1984,57 @@ export function renderDashboardHtml(): string {
         lastSeenMaxId = data.stats.launches_logged || lastSeenMaxId;
         lastSeenAlertCount = data.alerts?.length || lastSeenAlertCount;
 
-        // Dynamic SOL price ticker
-        if (data.sol_price_usd) {
-          const tSol = document.getElementById("t-sol");
+        // Dynamic Macro prices ticker (Binance SOL, BTC, ETH) with stale detection & -- fallback
+        const tSol = document.getElementById("t-sol");
+        const tBtc = document.getElementById("t-btc");
+        const tEth = document.getElementById("t-eth");
+        if (data.macro_prices) {
+          const mp = data.macro_prices;
+          const staleTag = mp.is_stale ? " (stale)" : "";
+          if (tSol) {
+            tSol.innerText = mp.sol !== null ? "$" + Number(mp.sol).toFixed(2) + staleTag : "$--.--";
+            tSol.className = mp.is_stale ? "ticker-neutral" : "ticker-up";
+          }
+          if (tBtc) {
+            tBtc.innerText = mp.btc !== null ? "$" + Number(mp.btc).toLocaleString() + staleTag : "$--,---";
+            tBtc.className = mp.is_stale ? "ticker-neutral" : "ticker-up";
+          }
+          if (tEth) {
+            tEth.innerText = mp.eth !== null ? "$" + Number(mp.eth).toLocaleString() + staleTag : "$--,---";
+            tEth.className = mp.is_stale ? "ticker-neutral" : "ticker-up";
+          }
+        } else if (data.sol_price_usd) {
           if (tSol) tSol.innerText = "$" + Number(data.sol_price_usd).toFixed(2);
+        }
+
+        // Live Feed Status Ticker
+        const tFeed = document.getElementById("t-feed");
+        if (tFeed) {
+          if (lagSec < 60) {
+            tFeed.innerText = "LIVE";
+            tFeed.className = "ticker-up";
+          } else {
+            tFeed.innerText = "DELAYED (~" + lagSec + "s)";
+            tFeed.className = "ticker-neutral";
+          }
+        }
+
+        // Live Launch Velocity (allows 0/min)
+        if (data.launch_velocity_per_min != null) {
+          const tRate = document.getElementById("t-rate");
+          if (tRate) tRate.innerText = data.launch_velocity_per_min + "/min";
+          const mRate = document.getElementById("metric-rate");
+          if (mRate) mRate.innerText = data.launch_velocity_per_min + "/min";
+        }
+
+        // Estimated Graduation Rate
+        const tGrad = document.getElementById("t-grad");
+        if (tGrad) {
+          if (data.graduation_rate_est != null) {
+            tGrad.innerText = data.graduation_rate_est > 0 ? data.graduation_rate_est + "% (est)" : "-- (est)";
+          } else {
+            tGrad.innerText = "-- (est)";
+          }
         }
 
         // Update KPIs

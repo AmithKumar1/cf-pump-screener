@@ -14,10 +14,10 @@ import {
 } from "./telegram.ts";
 import { runHealthCheck, monitorActiveWatchlist } from "./monitor.ts";
 import { parseHeliusCreate, parseHeliusSwap } from "./parser.ts";
-import { fetchTokenMetadata } from "./metadata.ts";
+import { fetchTokenMetadata, METADATA_UPDATE_SQL } from "./metadata.ts";
 import { renderDashboardHtml } from "./dashboard.ts";
 import { fetchRugCheck } from "./security.ts";
-import { getDetailedTokenInspection, fetchLiveSolPrice } from "./inspect.ts";
+import { getDetailedTokenInspection, fetchLiveSolPrice, fetchLiveMacroPrices } from "./inspect.ts";
 
 function extractAuthToken(request: Request, url: URL): string | null {
   // 1. Authorization header: "Bearer <token>" or raw token (Helius Authentication Header)
@@ -89,8 +89,11 @@ interface MemoryFeedCache {
   withSocials: number;
   serialRuggersBlocked: number;
   lastDbSync: number;
+  lastGradSync: number;
   whaleTrades: WhaleTradeAlert[];
   trackedWhales: TrackedWhale[];
+  launchVelocity: number;
+  graduationRateEst: number;
 }
 
 // In-Memory Edge Cache to eliminate D1 rows_read quota burn from dashboard polling
@@ -101,8 +104,11 @@ const MEM_CACHE: MemoryFeedCache = {
   withSocials: 0,
   serialRuggersBlocked: 0,
   lastDbSync: 0,
+  lastGradSync: 0,
   whaleTrades: [],
   trackedWhales: [],
+  launchVelocity: 0,
+  graduationRateEst: 0,
 };
 
 // Rate-limiting and inspection response caching (mitigates external API exhaustion)
@@ -190,12 +196,37 @@ export default {
         const maxRow = await env.DB.prepare("SELECT MAX(id) as max_id FROM events").first<{ max_id: number }>();
         const alertRows = await env.DB.prepare("SELECT * FROM alerts ORDER BY id DESC LIMIT 10").all<any>();
 
+        // Canonical ISO-8601 formatting (RFC 3339) supported by Safari, Firefox, Chrome, and Brave
         const { results: recentEvents } = await env.DB.prepare(
-          `SELECT id, mint, symbol, name, creator, uri, twitter, telegram, website, datetime(received_at/1000, 'unixepoch') as time_utc
+          `SELECT id, mint, symbol, name, creator, uri, twitter, telegram, website, strftime('%Y-%m-%dT%H:%M:%SZ', received_at/1000, 'unixepoch') as time_utc
            FROM events
            ORDER BY id DESC
            LIMIT 30`
         ).all<any>();
+
+        // Trailing 15-minute launch velocity using indexed received_at (allows 0/min)
+        const fifteenMinAgo = now - 15 * 60 * 1000;
+        const velRow = await env.DB.prepare(
+          "SELECT COUNT(*) as cnt FROM events WHERE received_at > ?"
+        ).bind(fifteenMinAgo).first<{ cnt: number }>();
+
+        MEM_CACHE.launchVelocity = Math.round((velRow?.cnt || 0) / 15);
+
+        // Estimated graduation rate: Heavy aggregation cached for 10 minutes (600,000 ms)
+        if (now - MEM_CACHE.lastGradSync > 600000 || MEM_CACHE.lastGradSync === 0) {
+          const gradRow = await env.DB.prepare(
+            `SELECT COUNT(DISTINCT mint) as grad_cnt FROM (
+               SELECT mint, SUM(CASE WHEN side = 'buy' THEN sol_amount ELSE -sol_amount END) as net_sol
+               FROM trades
+               GROUP BY mint
+               HAVING net_sol >= 85.0
+             )`
+          ).first<{ grad_cnt: number }>();
+
+          const totalLogged = maxRow?.max_id || 1;
+          MEM_CACHE.graduationRateEst = Number((((gradRow?.grad_cnt || 0) / totalLogged) * 100).toFixed(2));
+          MEM_CACHE.lastGradSync = now;
+        }
 
         MEM_CACHE.maxId = maxRow?.max_id || 0;
         MEM_CACHE.alerts = alertRows.results || [];
@@ -209,13 +240,22 @@ export default {
         }));
       }
 
-      const solPriceInfo = await fetchLiveSolPrice();
+      const macroPrices = await fetchLiveMacroPrices();
 
       return new Response(
         JSON.stringify({
           service: "cf-pump-screener",
           status: "healthy",
-          sol_price_usd: solPriceInfo.price,
+          sol_price_usd: macroPrices.sol,
+          macro_prices: {
+            sol: macroPrices.sol,
+            btc: macroPrices.btc,
+            eth: macroPrices.eth,
+            is_live: macroPrices.is_live,
+            is_stale: macroPrices.is_stale,
+          },
+          launch_velocity_per_min: MEM_CACHE.launchVelocity,
+          graduation_rate_est: MEM_CACHE.graduationRateEst,
           stats: {
             launches_logged: MEM_CACHE.maxId,
             with_socials: MEM_CACHE.withSocials,
@@ -383,7 +423,7 @@ export default {
               twitter: null,
               telegram: null,
               website: null,
-              time_utc: new Date(nowMs).toISOString().replace("T", " ").slice(0, 19),
+              time_utc: new Date(nowMs).toISOString(),
               past_launches: 1,
               is_serial_rugger: false,
               has_alert: false,
@@ -551,8 +591,63 @@ export default {
   async scheduled(event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
     ctx.waitUntil(runHealthCheck(env));
     ctx.waitUntil(monitorActiveWatchlist(env));
+    ctx.waitUntil(processMetadataQueue(env));
   },
 };
+
+/**
+ * Cron Queue Processor: Resolves unresolved recent & historical token metadata oldest-first
+ * using a persistent cursor in health_state.
+ * Runs every 1 minute without dropping launches or risking gateway 429 rate limits.
+ */
+export async function processMetadataQueue(env: Env): Promise<number> {
+  try {
+    const cursorRow = await env.DB.prepare(
+      "SELECT value FROM health_state WHERE key = 'meta_cursor'"
+    ).first<{ value: string }>();
+
+    let cursor = cursorRow?.value ? parseInt(cursorRow.value, 10) : 0;
+    if (isNaN(cursor)) cursor = 0;
+
+    const { results: batch } = await env.DB.prepare(
+      `SELECT id, mint, uri FROM events
+       WHERE id > ? AND uri IS NOT NULL AND uri != ''
+       ORDER BY id ASC
+       LIMIT 5`
+    )
+      .bind(cursor)
+      .all<{ id: number; mint: string; uri: string }>();
+
+    if (!batch || batch.length === 0) {
+      if (cursor > 0) {
+        await env.DB.prepare(
+          "INSERT OR REPLACE INTO health_state (key, value, updated_at) VALUES ('meta_cursor', '0', ?)"
+        )
+          .bind(Date.now())
+          .run();
+      }
+      return 0;
+    }
+
+    let maxProcessedId = cursor;
+    for (const item of batch) {
+      await resolveMetadataForToken(item.mint, item.uri, env);
+      if (item.id > maxProcessedId) maxProcessedId = item.id;
+    }
+
+    await env.DB.prepare(
+      "INSERT OR REPLACE INTO health_state (key, value, updated_at) VALUES ('meta_cursor', ?, ?)"
+    )
+      .bind(String(maxProcessedId), Date.now())
+      .run();
+
+    return batch.length;
+  } catch (err: unknown) {
+    const errName = err instanceof Error ? err.name : "QueueError";
+    console.error("processMetadataQueue failed:", errName);
+    return 0;
+  }
+}
 
 /**
  * Asynchronously fetch and store off-chain social metadata for a newly launched token.
@@ -565,42 +660,42 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
       return;
     }
 
+    const sanitizeSocial = (val: string | null | undefined): string | null => {
+      if (!val) return null;
+      const trimmed = val.trim();
+      return trimmed.length > 0 ? trimmed : null;
+    };
+
+    const twitterVal = sanitizeSocial(meta.twitter);
+    const telegramVal = sanitizeSocial(meta.telegram);
+    const websiteVal = sanitizeSocial(meta.website);
+    const nameVal = meta.name ? meta.name.trim() : null;
+    const symbolVal = meta.symbol ? meta.symbol.trim() : null;
+
     // Persist verified metadata back to D1 events table
-    // Non-null empty strings indicate metadata was fetched and verified (empty socials vs un-fetched null)
-    await env.DB.prepare(
-      `UPDATE events
-       SET twitter = ?,
-           telegram = ?,
-           website = ?,
-           name = COALESCE(NULLIF(name, ''), ?),
-           symbol = COALESCE(NULLIF(symbol, ''), '')
-       WHERE mint = ? AND kind = 'new_token'`
-    )
+    // NULL is strictly stored for missing/empty socials to preserve accurate SQL count semantics
+    await env.DB.prepare(METADATA_UPDATE_SQL)
       .bind(
-        meta.twitter ?? "",
-        meta.telegram ?? "",
-        meta.website ?? "",
-        meta.name ?? "",
-        meta.symbol ?? "",
+        twitterVal,
+        telegramVal,
+        websiteVal,
+        nameVal,
+        symbolVal,
         mint
       )
       .run();
 
     // Stage 1: Verified Launch Evaluation
-    const hasSocials = Boolean(
-      (meta.twitter && meta.twitter.trim() !== "") ||
-      (meta.telegram && meta.telegram.trim() !== "") ||
-      (meta.website && meta.website.trim() !== "")
-    );
+    const hasSocials = Boolean(twitterVal || telegramVal || websiteVal);
 
     // Update In-Memory cache for live dashboard without D1 query
     const cachedItem = MEM_CACHE.events.find((e) => e.mint === mint);
     if (cachedItem) {
-      cachedItem.twitter = meta.twitter ?? null;
-      cachedItem.telegram = meta.telegram ?? null;
-      cachedItem.website = meta.website ?? null;
-      cachedItem.name = meta.name || cachedItem.name;
-      cachedItem.symbol = meta.symbol || cachedItem.symbol;
+      cachedItem.twitter = twitterVal;
+      cachedItem.telegram = telegramVal;
+      cachedItem.website = websiteVal;
+      if (nameVal) cachedItem.name = nameVal;
+      if (symbolVal) cachedItem.symbol = symbolVal;
       if (hasSocials) MEM_CACHE.withSocials++;
     }
 
@@ -653,59 +748,65 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
 
           if (!existingAlert) {
             let stage1Score = 55;
-            if (meta.twitter) stage1Score += 10;
-            if (meta.telegram) stage1Score += 10;
-            if (meta.website) stage1Score += 5;
+            if (twitterVal) stage1Score += 10;
+            if (telegramVal) stage1Score += 10;
+            if (websiteVal) stage1Score += 5;
             if (isSmartCreator) stage1Score += 15;
             if (!memeAnalysis.is_ai_slop) stage1Score += 5;
             if (sri.serial_rug_index === 0) stage1Score += 5;
             stage1Score = Math.min(100, stage1Score);
 
-            // Record alert in D1 to prevent duplicates
-            await env.DB.prepare(
-              `INSERT INTO alerts (mint, symbol, score, net_sol, unique_buyers, buyer_hhi, flags, created_at)
-               VALUES (?, ?, ?, 0, 1, 0, 'STAGE_1_VERIFIED_LAUNCH', ?)`
-            )
-              .bind(mint, tokenSymbol, stage1Score, Date.now())
-              .run();
+            const minScore = Number(env.MIN_ALERT_SCORE || 75);
 
-            if (cachedItem) cachedItem.has_alert = true;
-            MEM_CACHE.alerts.unshift({
-              id: Date.now(),
-              mint,
-              symbol: tokenSymbol,
-              score: stage1Score,
-              net_sol: 0,
-              unique_buyers: 1,
-              buyer_hhi: 0,
-              flags: "STAGE_1_VERIFIED_LAUNCH",
-              created_at: Date.now(),
-            });
-            if (MEM_CACHE.alerts.length > 10) MEM_CACHE.alerts.pop();
+            // Gating: Only record and alert if score reaches minScore threshold
+            if (stage1Score >= minScore) {
+              // Record alert in D1 to prevent duplicates
+              await env.DB.prepare(
+                `INSERT INTO alerts (mint, symbol, score, net_sol, unique_buyers, buyer_hhi, flags, created_at)
+                 VALUES (?, ?, ?, 0, 1, 0, 'STAGE_1_VERIFIED_LAUNCH', ?)`
+              )
+                .bind(mint, tokenSymbol, stage1Score, Date.now())
+                .run();
 
-            // Run automated RugCheck Security Audit
-            const rugCheck = await fetchRugCheck(mint);
-
-            // Dispatch immediately to Telegram (@memcoinhome_bot)
-            if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
-              const card = formatVerifiedLaunchCard(
+              if (cachedItem) cachedItem.has_alert = true;
+              MEM_CACHE.alerts.unshift({
+                id: Date.now(),
                 mint,
-                tokenSymbol,
-                tokenName,
-                creator,
-                stage1Score,
-                meta.twitter ?? null,
-                meta.telegram ?? null,
-                meta.website ?? null,
-                memeAnalysis.ai_slop_score,
-                memeAnalysis.is_ai_slop,
-                sri.serial_rug_index,
-                isSmartCreator,
-                rugCheck.status,
-                rugCheck.score,
-                rugCheck.risks
-              );
-              await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, card);
+                symbol: tokenSymbol,
+                score: stage1Score,
+                net_sol: 0,
+                unique_buyers: 1,
+                buyer_hhi: 0,
+                flags: "STAGE_1_VERIFIED_LAUNCH",
+                created_at: Date.now(),
+              });
+              if (MEM_CACHE.alerts.length > 10) MEM_CACHE.alerts.pop();
+
+              // Run automated RugCheck Security Audit
+              const rugCheck = await fetchRugCheck(mint);
+
+              // Check if Telegram alerts are paused before sending
+              const isAlertsPaused = env.PAUSE_TELEGRAM_ALERTS === "true" || env.PAUSE_TELEGRAM_ALERTS === "1";
+              if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID && !isAlertsPaused) {
+                const card = formatVerifiedLaunchCard(
+                  mint,
+                  tokenSymbol,
+                  tokenName,
+                  creator,
+                  stage1Score,
+                  twitterVal,
+                  telegramVal,
+                  websiteVal,
+                  memeAnalysis.ai_slop_score,
+                  memeAnalysis.is_ai_slop,
+                  sri.serial_rug_index,
+                  isSmartCreator,
+                  rugCheck.status,
+                  rugCheck.score,
+                  rugCheck.risks
+                );
+                await sendTelegramMessage(env.TELEGRAM_BOT_TOKEN, env.TELEGRAM_CHAT_ID, card);
+              }
             }
           }
         }
@@ -843,8 +944,9 @@ async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
       )
       .run();
 
-    // Dispatch to Telegram
-    if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID) {
+    // Dispatch to Telegram if not paused
+    const isAlertsPaused = env.PAUSE_TELEGRAM_ALERTS === "true" || env.PAUSE_TELEGRAM_ALERTS === "1";
+    if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID && !isAlertsPaused) {
       const cardText = formatResearchCard(
         mint,
         metadata.symbol || "TOKEN",

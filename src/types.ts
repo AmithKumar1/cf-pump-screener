@@ -4,6 +4,7 @@ export interface Env {
   TELEGRAM_CHAT_ID?: string;
   MIN_ALERT_SCORE?: string;
   WEBHOOK_SECRET?: string;
+  PAUSE_TELEGRAM_ALERTS?: string;
 }
 
 export interface LaunchMetadata {
