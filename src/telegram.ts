@@ -26,6 +26,11 @@ export async function sendTelegramMessage(
         disable_web_page_preview: true,
       }),
     });
+    if (res.ok) {
+      console.log(`[Telegram Alert] Successfully dispatched notification to chat ${chatId}`);
+    } else {
+      console.warn(`[Telegram Alert] Failed to dispatch to chat ${chatId}: HTTP ${res.status}`);
+    }
     return res.ok;
   } catch (err: unknown) {
     // SECURITY: Log ONLY the error class name. Never log error string/URL containing token.

@@ -9,6 +9,28 @@ import type { Env } from "./types.ts";
 
 const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 
+// Auto-load .env file if present in project root
+const ENV_PATH = path.resolve(PROJECT_ROOT, ".env");
+if (fs.existsSync(ENV_PATH)) {
+  try {
+    const envContent = fs.readFileSync(ENV_PATH, "utf8");
+    for (const line of envContent.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+      const eqIdx = trimmed.indexOf("=");
+      if (eqIdx > 0) {
+        const key = trimmed.slice(0, eqIdx).trim();
+        const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, "");
+        if (!(key in process.env)) {
+          process.env[key] = val;
+        }
+      }
+    }
+  } catch (err: any) {
+    console.warn("[Notice] Could not load .env file:", err.message);
+  }
+}
+
 // 1. Configuration & Environment Variables
 const PORT = parseInt(process.env.PORT || "8787", 10);
 const HOST = process.env.HOST || "0.0.0.0";
