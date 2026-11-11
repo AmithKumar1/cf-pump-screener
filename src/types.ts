@@ -7,6 +7,8 @@ export interface Env {
   PAUSE_TELEGRAM_ALERTS?: string;
   ENABLE_STAGE1_TELEGRAM_ALERTS?: string;
   MIN_BREAKOUT_CURVE_PCT?: string;
+  MIN_BREAKOUT_VOLUME_USD?: string;
+  MIN_BREAKOUT_BUYS?: string;
 }
 
 export interface LaunchMetadata {

@@ -9,6 +9,7 @@
     "deploy": "wrangler deploy",
     "start:local": "node --experimental-strip-types src/server.ts",
     "import:backup": "node scripts/import_backup.js",
+    "db:prune": "node scripts/prune_db.js",
     "test": "node --experimental-strip-types --test test/screener.test.ts test/helius_parser.test.ts test/d1_binding.test.ts test/local_d1.test.ts",
     "db:init:local": "wrangler d1 execute pump_launches --local --file=./schema.sql",
     "db:init:remote": "wrangler d1 execute pump_launches --remote --file=./schema.sql"

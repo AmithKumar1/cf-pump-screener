@@ -40,6 +40,9 @@ const MIN_ALERT_SCORE = process.env.MIN_ALERT_SCORE || "75";
 const PAUSE_TELEGRAM_ALERTS = process.env.PAUSE_TELEGRAM_ALERTS || "true";
 const ENABLE_STAGE1_TELEGRAM_ALERTS = process.env.ENABLE_STAGE1_TELEGRAM_ALERTS || "false";
 const MIN_BREAKOUT_CURVE_PCT = process.env.MIN_BREAKOUT_CURVE_PCT || "35";
+const MIN_BREAKOUT_VOLUME_USD = process.env.MIN_BREAKOUT_VOLUME_USD || "10000";
+const MIN_BREAKOUT_BUYS = process.env.MIN_BREAKOUT_BUYS || "25";
+const RETENTION_DAYS = parseInt(process.env.RETENTION_DAYS || "7", 10);
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
@@ -53,6 +56,9 @@ console.log(`Local Port:            ${PORT}`);
 console.log(`Telegram Alerts:       ${PAUSE_TELEGRAM_ALERTS === "true" ? "MUTED (Testing Mode)" : "ACTIVE"}`);
 console.log(`Telegram Stage 1:      ${ENABLE_STAGE1_TELEGRAM_ALERTS === "true" ? "ENABLED (All creations)" : "MUTED (Alpha/Whale deployers only)"}`);
 console.log(`Min Breakout Curve:    ${MIN_BREAKOUT_CURVE_PCT}%`);
+console.log(`Min Breakout Volume:   $${MIN_BREAKOUT_VOLUME_USD}`);
+console.log(`Min Breakout Buys:     ${MIN_BREAKOUT_BUYS} buys`);
+console.log(`DB Auto-Retention:     ${RETENTION_DAYS} days`);
 console.log(`Direct WebSocket Feed: ${ENABLE_WS_FEED ? "ENABLED (PumpPortal)" : "DISABLED"}`);
 console.log("--------------------------------------------------");
 
@@ -76,6 +82,8 @@ const env: Env = {
   PAUSE_TELEGRAM_ALERTS,
   ENABLE_STAGE1_TELEGRAM_ALERTS,
   MIN_BREAKOUT_CURVE_PCT,
+  MIN_BREAKOUT_VOLUME_USD,
+  MIN_BREAKOUT_BUYS,
   WEBHOOK_SECRET,
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHAT_ID,
@@ -101,6 +109,32 @@ const runScheduled = async () => {
 // Trigger immediately on startup, then every 60 seconds
 runScheduled();
 const cronTimer = setInterval(runScheduled, 60_000);
+
+// 4b. Automatic Database Retention & Pruning (Runs daily)
+const runPrune = async () => {
+  try {
+    const cutoffMs = Date.now() - RETENTION_DAYS * 24 * 60 * 60 * 1000;
+    const res = await localDb.prepare(
+      `DELETE FROM events
+       WHERE received_at < ?
+         AND mint NOT IN (SELECT DISTINCT mint FROM alerts)
+         AND mint NOT IN (SELECT DISTINCT mint FROM trades)`
+    ).bind(cutoffMs).run();
+
+    const deleted = (res as any)?.meta?.changes || 0;
+    if (deleted > 0) {
+      console.log(`[DB Retention] Pruned ${deleted} un-alerted historical events (> ${RETENTION_DAYS} days old).`);
+      try {
+        localDb.exec("PRAGMA optimize;");
+      } catch {}
+    }
+  } catch (err: any) {
+    console.warn("[DB Retention Notice]", err.message);
+  }
+};
+
+setTimeout(runPrune, 15_000);
+setInterval(runPrune, 24 * 60 * 60 * 1000);
 
 // 5. Start Direct WebSocket Feed (Optional, On by default for zero-config local ingest)
 let wsFeed: PumpPortalFeed | null = null;

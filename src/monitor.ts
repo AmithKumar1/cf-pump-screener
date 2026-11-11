@@ -105,17 +105,19 @@ export async function monitorActiveWatchlist(env: Env): Promise<void> {
       const curveProgress = Math.max(0, Math.min(100, ((mcap - 4000) / 65000) * 100));
 
       const minBreakoutCurve = Number(env.MIN_BREAKOUT_CURVE_PCT || 35);
+      const minBreakoutVolume = Number(env.MIN_BREAKOUT_VOLUME_USD || 10000);
+      const minBreakoutBuys = Number(env.MIN_BREAKOUT_BUYS || 25);
 
       // STRICT BREAKOUT CRITERIA:
       // 1. Must achieve at least minBreakoutCurve (default 35% curve, ~30 SOL raised, ~$27k mcap)
-      // 2. Minimum 40 transactions and 25 buys (rules out single sniper pumps)
-      // 3. Minimum $10,000 1-hour volume
+      // 2. Minimum transactions (totalTx >= buys * 1.3) and minBreakoutBuys (rules out single sniper pumps)
+      // 3. Minimum 1-hour volume (minBreakoutVolume)
       // 4. Net accumulation dominance (OFI >= 0.60)
       if (
         curveProgress >= minBreakoutCurve &&
-        totalTx >= 40 &&
-        buys >= 25 &&
-        volumeH1 >= 10000 &&
+        totalTx >= Math.round(minBreakoutBuys * 1.4) &&
+        buys >= minBreakoutBuys &&
+        volumeH1 >= minBreakoutVolume &&
         ofi >= 0.60
       ) {
         // Check if we already sent a Stage 2 alert for this mint
