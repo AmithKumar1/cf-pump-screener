@@ -133,7 +133,7 @@ export default {
     }
 
     // Detailed Token & Whale Inspector API (Rate-Limited & In-Memory Cached)
-    if (url.pathname === "/api/inspect") {
+    if (url.pathname === "/api/inspect" || url.pathname.startsWith("/api/inspect/")) {
       const clientIp = request.headers.get("cf-connecting-ip") || "anon";
       const now = Date.now();
 
@@ -149,7 +149,8 @@ export default {
       clientCalls.push(now);
       INSPECT_IP_WINDOW.set(clientIp, clientCalls);
 
-      const mint = url.searchParams.get("mint");
+      const pathSegments = url.pathname.split("/").filter(Boolean);
+      const mint = url.searchParams.get("mint") || (pathSegments.length > 2 ? pathSegments[2] : null);
       if (!mint) {
         return new Response(JSON.stringify({ error: "Missing mint parameter" }), {
           status: 400,
