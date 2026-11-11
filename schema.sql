@@ -31,6 +31,7 @@ CREATE TABLE IF NOT EXISTS trades (
 );
 
 CREATE INDEX IF NOT EXISTS idx_trades_mint ON trades(mint);
+CREATE INDEX IF NOT EXISTS idx_trades_mint_time ON trades(mint, block_time ASC);
 CREATE INDEX IF NOT EXISTS idx_trades_trader ON trades(trader);
 
 CREATE TABLE IF NOT EXISTS alerts (
