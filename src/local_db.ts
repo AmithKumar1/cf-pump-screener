@@ -1,6 +1,9 @@
 import { DatabaseSync } from "node:sqlite";
 import fs from "node:fs";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const DEFAULT_DB_PATH = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "data", "pump_launches.db");
 
 export interface LocalD1Result<T = unknown> {
   results: T[];
@@ -89,7 +92,7 @@ export class LocalD1PreparedStatement {
 export class LocalD1Database {
   public readonly db: DatabaseSync;
 
-  constructor(dbPath: string = path.resolve("data", "pump_launches.db")) {
+  constructor(dbPath: string = DEFAULT_DB_PATH) {
     fs.mkdirSync(path.dirname(dbPath), { recursive: true });
     this.db = new DatabaseSync(dbPath);
     this.db.exec("PRAGMA journal_mode = WAL;");

@@ -1,15 +1,19 @@
 import http from "node:http";
 import path from "node:path";
 import fs from "node:fs";
+import { fileURLToPath } from "node:url";
 import worker from "./index.ts";
 import { LocalD1Database } from "./local_db.ts";
 import { PumpPortalFeed } from "./ws_feed.ts";
 import type { Env } from "./types.ts";
 
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+
 // 1. Configuration & Environment Variables
 const PORT = parseInt(process.env.PORT || "8787", 10);
 const HOST = process.env.HOST || "0.0.0.0";
-const DB_PATH = process.env.DB_PATH || path.resolve("data", "pump_launches.db");
+const DB_PATH = process.env.DB_PATH || path.resolve(PROJECT_ROOT, "data", "pump_launches.db");
+const SCHEMA_PATH = path.resolve(PROJECT_ROOT, "schema.sql");
 const MIN_ALERT_SCORE = process.env.MIN_ALERT_SCORE || "75";
 const PAUSE_TELEGRAM_ALERTS = process.env.PAUSE_TELEGRAM_ALERTS || "true";
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";
@@ -31,9 +35,8 @@ const localDb = new LocalD1Database(DB_PATH);
 
 // Ensure schema is applied
 try {
-  const schemaPath = path.resolve("schema.sql");
-  if (fs.existsSync(schemaPath)) {
-    const schemaSql = fs.readFileSync(schemaPath, "utf8");
+  if (fs.existsSync(SCHEMA_PATH)) {
+    const schemaSql = fs.readFileSync(SCHEMA_PATH, "utf8");
     localDb.exec(schemaSql);
   }
 } catch (err: any) {
@@ -132,6 +135,15 @@ const server = http.createServer(async (req: http.IncomingMessage, res: http.Ser
     res.statusCode = 500;
     res.setHeader("Content-Type", "application/json");
     res.end(JSON.stringify({ error: "Internal Server Error", message: err?.message || String(err) }));
+  }
+});
+
+server.on("error", (err: any) => {
+  if (err.code === "EADDRINUSE") {
+    console.log(`[Notice] Port ${PORT} is already in use. Local screener is already running.`);
+    process.exit(0);
+  } else {
+    console.error("[Server Error]", err);
   }
 });
 
