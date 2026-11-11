@@ -821,7 +821,7 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
 /**
  * On-chain evaluation and Telegram alert trigger
  */
-async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
+export async function evaluateTokenForSignal(mint: string, env: Env): Promise<void> {
   // 1. Verify token is a genuine Pump.fun token (ends in "pump" or exists in events)
   const isPumpMint = mint.endsWith("pump");
   const eventRow = await env.DB.prepare(

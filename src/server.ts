@@ -1,0 +1,158 @@
+import http from "node:http";
+import path from "node:path";
+import fs from "node:fs";
+import worker from "./index.ts";
+import { LocalD1Database } from "./local_db.ts";
+import { PumpPortalFeed } from "./ws_feed.ts";
+import type { Env } from "./types.ts";
+
+// 1. Configuration & Environment Variables
+const PORT = parseInt(process.env.PORT || "8787", 10);
+const HOST = process.env.HOST || "0.0.0.0";
+const DB_PATH = process.env.DB_PATH || path.resolve("data", "pump_launches.db");
+const MIN_ALERT_SCORE = process.env.MIN_ALERT_SCORE || "75";
+const PAUSE_TELEGRAM_ALERTS = process.env.PAUSE_TELEGRAM_ALERTS || "true";
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
+const ENABLE_WS_FEED = process.env.ENABLE_WS_FEED !== "false";
+
+console.log("==================================================");
+console.log("  CF-PUMP-SCREENER LOCAL TERMINAL & ENGINE");
+console.log("==================================================");
+console.log(`Database:              ${DB_PATH}`);
+console.log(`Local Port:            ${PORT}`);
+console.log(`Telegram Alerts:       ${PAUSE_TELEGRAM_ALERTS === "true" ? "MUTED (Testing Mode)" : "ACTIVE"}`);
+console.log(`Direct WebSocket Feed: ${ENABLE_WS_FEED ? "ENABLED (PumpPortal)" : "DISABLED"}`);
+console.log("--------------------------------------------------");
+
+// 2. Initialize Local SQLite D1 Database Adapter
+const localDb = new LocalD1Database(DB_PATH);
+
+// Ensure schema is applied
+try {
+  const schemaPath = path.resolve("schema.sql");
+  if (fs.existsSync(schemaPath)) {
+    const schemaSql = fs.readFileSync(schemaPath, "utf8");
+    localDb.exec(schemaSql);
+  }
+} catch (err: any) {
+  console.warn("[Schema Notice]", err.message);
+}
+
+// 3. Assemble Cloudflare Worker Env Binding
+const env: Env = {
+  DB: localDb as unknown as D1Database,
+  MIN_ALERT_SCORE,
+  PAUSE_TELEGRAM_ALERTS,
+  WEBHOOK_SECRET,
+  TELEGRAM_BOT_TOKEN,
+  TELEGRAM_CHAT_ID,
+};
+
+// 4. Background Scheduled Tasks (Cron Replacement)
+const runScheduled = async () => {
+  try {
+    const ctx: any = {
+      waitUntil(promise: Promise<any>) {
+        Promise.resolve(promise).catch((err) => console.error("[Cron Task Error]", err));
+      },
+      passThroughOnException() {},
+    };
+    if (typeof worker.scheduled === "function") {
+      await worker.scheduled({} as any, env, ctx);
+    }
+  } catch (err: any) {
+    console.error("[Scheduled Loop Error]", err?.message || err);
+  }
+};
+
+// Trigger immediately on startup, then every 60 seconds
+runScheduled();
+const cronTimer = setInterval(runScheduled, 60_000);
+
+// 5. Start Direct WebSocket Feed (Optional, On by default for zero-config local ingest)
+let wsFeed: PumpPortalFeed | null = null;
+if (ENABLE_WS_FEED) {
+  wsFeed = new PumpPortalFeed(env);
+  wsFeed.start();
+}
+
+// 6. Local HTTP Server
+const server = http.createServer(async (req: http.IncomingMessage, res: http.ServerResponse) => {
+  try {
+    const hostHeader = req.headers.host || `localhost:${PORT}`;
+    const fullUrl = `http://${hostHeader}${req.url}`;
+
+    // Buffer incoming request body for POST / PUT / PATCH
+    const chunks: Buffer[] = [];
+    for await (const chunk of req) {
+      chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
+    }
+    const bodyBuffer = Buffer.concat(chunks);
+    const body = (req.method === "GET" || req.method === "HEAD") ? undefined : bodyBuffer;
+
+    const headers = new Headers();
+    for (const [key, value] of Object.entries(req.headers)) {
+      if (value !== undefined) {
+        if (Array.isArray(value)) {
+          value.forEach((v) => headers.append(key, v));
+        } else {
+          headers.set(key, value);
+        }
+      }
+    }
+
+    const webReq = new Request(fullUrl, {
+      method: req.method,
+      headers,
+      body,
+      // @ts-ignore
+      duplex: body ? "half" : undefined,
+    });
+
+    const ctx: any = {
+      waitUntil(promise: Promise<any>) {
+        Promise.resolve(promise).catch((err) => console.error("[Background Request Error]", err));
+      },
+      passThroughOnException() {},
+    };
+
+    const webRes = await worker.fetch(webReq, env, ctx);
+
+    res.statusCode = webRes.status;
+    webRes.headers.forEach((val, key) => {
+      res.setHeader(key, val);
+    });
+
+    const resBuf = Buffer.from(await webRes.arrayBuffer());
+    res.end(resBuf);
+  } catch (err: any) {
+    console.error("[HTTP Error]", err);
+    res.statusCode = 500;
+    res.setHeader("Content-Type", "application/json");
+    res.end(JSON.stringify({ error: "Internal Server Error", message: err?.message || String(err) }));
+  }
+});
+
+server.listen(PORT, HOST, () => {
+  console.log(`\n🚀 Local Screener running at:`);
+  console.log(`   Bloomberg Dashboard: http://localhost:${PORT}/dashboard`);
+  console.log(`   Live KPI Endpoint:   http://localhost:${PORT}/api/live`);
+  console.log(`   Helius Webhook URL:  http://localhost:${PORT}/webhook\n`);
+});
+
+// 7. Clean Shutdown
+const cleanup = () => {
+  console.log("\n[Shutdown] Stopping local server...");
+  clearInterval(cronTimer);
+  if (wsFeed) wsFeed.stop();
+  server.close(() => {
+    localDb.close();
+    console.log("[Shutdown] Done.");
+    process.exit(0);
+  });
+};
+
+process.on("SIGINT", cleanup);
+process.on("SIGTERM", cleanup);

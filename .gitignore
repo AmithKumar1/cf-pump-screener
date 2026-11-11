@@ -6,3 +6,6 @@ backups/
 *.zip
 /launch.json
 /swap.json
+data/*.db*
+data/*.sql
+*.log

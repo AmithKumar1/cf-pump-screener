@@ -7,12 +7,15 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "test": "node --experimental-strip-types --test test/screener.test.ts test/helius_parser.test.ts test/d1_binding.test.ts",
+    "start:local": "node --experimental-strip-types src/server.ts",
+    "import:backup": "node scripts/import_backup.js",
+    "test": "node --experimental-strip-types --test test/screener.test.ts test/helius_parser.test.ts test/d1_binding.test.ts test/local_d1.test.ts",
     "db:init:local": "wrangler d1 execute pump_launches --local --file=./schema.sql",
     "db:init:remote": "wrangler d1 execute pump_launches --remote --file=./schema.sql"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261109.1",
+    "@types/node": "^26.6.6",
     "typescript": "^5.7.3",
     "wrangler": "^4.125.0"
   }

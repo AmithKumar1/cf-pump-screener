@@ -1,6 +1,7 @@
 name = "cf-pump-screener"
 main = "src/index.ts"
 compatibility_date = "2026-08-27"
+account_id = "aefe85ffab61daea6049fea9366bb94f"
 
 # 100% Cloudflare Free Tier Worker
 # Runs HTTP Webhook receiver + Cron Trigger every 1 minute
