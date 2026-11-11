@@ -70,6 +70,12 @@ export class PumpPortalFeed {
       // @ts-ignore
       this.ws = new WebSocket("wss://pumpportal.fun/api/data");
 
+      if (typeof this.ws.on === "function") {
+        this.ws.on("error", (err: any) => {
+          console.warn("[PumpPortal Feed] WS Error:", err?.message || "error");
+        });
+      }
+
       this.ws.addEventListener("open", () => {
         console.log("[PumpPortal Feed] Connected! Subscribing to token creations...");
         this.ws?.send(JSON.stringify({ method: "subscribeNewToken" }));

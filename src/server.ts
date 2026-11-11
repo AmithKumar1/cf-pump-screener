@@ -217,7 +217,15 @@ server.listen(PORT, HOST, () => {
   console.log(`   Helius Webhook URL:  http://localhost:${PORT}/webhook\n`);
 });
 
-// 7. Clean Shutdown
+// 7. Clean Shutdown & Resilience
+process.on("uncaughtException", (err: any) => {
+  console.error("[Daemon Uncaught Exception]", err?.stack || err?.message || err);
+});
+
+process.on("unhandledRejection", (reason: any) => {
+  console.error("[Daemon Unhandled Rejection]", reason?.stack || reason?.message || reason);
+});
+
 const cleanup = () => {
   console.log("\n[Shutdown] Stopping local server...");
   clearInterval(cronTimer);
