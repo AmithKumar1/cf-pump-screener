@@ -5,6 +5,8 @@ export interface Env {
   MIN_ALERT_SCORE?: string;
   WEBHOOK_SECRET?: string;
   PAUSE_TELEGRAM_ALERTS?: string;
+  ENABLE_STAGE1_TELEGRAM_ALERTS?: string;
+  MIN_BREAKOUT_CURVE_PCT?: string;
 }
 
 export interface LaunchMetadata {

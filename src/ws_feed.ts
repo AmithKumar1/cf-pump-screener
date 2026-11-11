@@ -140,6 +140,23 @@ export class PumpPortalFeed {
 
         console.log(`[PumpPortal] New Launch: ${launch.symbol || "???"} (${launch.mint.slice(0, 8)}...)`);
 
+        // Record creator's initial buy trade if present
+        if (launch.solAmount && launch.solAmount > 0) {
+          await this.env.DB.prepare(
+            `INSERT OR IGNORE INTO trades (signature, mint, side, trader, sol_amount, token_amount, block_time)
+             VALUES (?, ?, 'buy', ?, ?, ?, ?)`
+          )
+            .bind(
+              launch.signature || `init_${launch.mint}`,
+              launch.mint,
+              launch.traderPublicKey || "unknown",
+              launch.solAmount,
+              launch.initialBuy || 0,
+              Math.floor(now / 1000)
+            )
+            .run();
+        }
+
         // Track trades for this newly created mint (capped at maxTrackedMints)
         if (this.trackedMints.size >= this.maxTrackedMints) {
           const oldest = this.trackedMints.values().next().value;

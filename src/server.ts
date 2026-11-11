@@ -38,6 +38,8 @@ const DB_PATH = process.env.DB_PATH || path.resolve(PROJECT_ROOT, "data", "pump_
 const SCHEMA_PATH = path.resolve(PROJECT_ROOT, "schema.sql");
 const MIN_ALERT_SCORE = process.env.MIN_ALERT_SCORE || "75";
 const PAUSE_TELEGRAM_ALERTS = process.env.PAUSE_TELEGRAM_ALERTS || "true";
+const ENABLE_STAGE1_TELEGRAM_ALERTS = process.env.ENABLE_STAGE1_TELEGRAM_ALERTS || "false";
+const MIN_BREAKOUT_CURVE_PCT = process.env.MIN_BREAKOUT_CURVE_PCT || "35";
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET || "";
 const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || "";
 const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || "";
@@ -49,6 +51,8 @@ console.log("==================================================");
 console.log(`Database:              ${DB_PATH}`);
 console.log(`Local Port:            ${PORT}`);
 console.log(`Telegram Alerts:       ${PAUSE_TELEGRAM_ALERTS === "true" ? "MUTED (Testing Mode)" : "ACTIVE"}`);
+console.log(`Telegram Stage 1:      ${ENABLE_STAGE1_TELEGRAM_ALERTS === "true" ? "ENABLED (All creations)" : "MUTED (Alpha/Whale deployers only)"}`);
+console.log(`Min Breakout Curve:    ${MIN_BREAKOUT_CURVE_PCT}%`);
 console.log(`Direct WebSocket Feed: ${ENABLE_WS_FEED ? "ENABLED (PumpPortal)" : "DISABLED"}`);
 console.log("--------------------------------------------------");
 
@@ -70,6 +74,8 @@ const env: Env = {
   DB: localDb as unknown as D1Database,
   MIN_ALERT_SCORE,
   PAUSE_TELEGRAM_ALERTS,
+  ENABLE_STAGE1_TELEGRAM_ALERTS,
+  MIN_BREAKOUT_CURVE_PCT,
   WEBHOOK_SECRET,
   TELEGRAM_BOT_TOKEN,
   TELEGRAM_CHAT_ID,

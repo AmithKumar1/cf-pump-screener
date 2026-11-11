@@ -102,82 +102,108 @@ export async function monitorActiveWatchlist(env: Env): Promise<void> {
 
       const ofi = buys / totalTx;
       // PumpSwap migration on pump.fun is ~69k mcap (85 SOL).
-      // 15 SOL milestone is ~12k mcap (approx 17-20% curve progress)
       const curveProgress = Math.max(0, Math.min(100, ((mcap - 4000) / 65000) * 100));
 
-      // Trigger if curve reached milestone (e.g. >= 15% or volume >= $2000) and buys dominate (OFI >= 0.55)
-      if ((curveProgress >= 15 || volumeH1 >= 2000) && ofi >= 0.55) {
+      const minBreakoutCurve = Number(env.MIN_BREAKOUT_CURVE_PCT || 35);
+
+      // STRICT BREAKOUT CRITERIA:
+      // 1. Must achieve at least minBreakoutCurve (default 35% curve, ~30 SOL raised, ~$27k mcap)
+      // 2. Minimum 40 transactions and 25 buys (rules out single sniper pumps)
+      // 3. Minimum $10,000 1-hour volume
+      // 4. Net accumulation dominance (OFI >= 0.60)
+      if (
+        curveProgress >= minBreakoutCurve &&
+        totalTx >= 40 &&
+        buys >= 25 &&
+        volumeH1 >= 10000 &&
+        ofi >= 0.60
+      ) {
         // Check if we already sent a Stage 2 alert for this mint
         const lastStage2 = await env.DB.prepare(
-          "SELECT id FROM alerts WHERE mint = ? AND flags LIKE '%STAGE_2%'"
+          "SELECT id, net_sol FROM alerts WHERE mint = ? AND flags LIKE '%STAGE_2%' ORDER BY id DESC LIMIT 1"
         )
           .bind(mint)
-          .first();
+          .first<{ id: number; net_sol: number }>();
 
-        if (!lastStage2) {
-          const candidate = candidates.find(c => c.mint === mint);
-          const name = candidate?.name || pair.baseToken?.name || "Token";
-          const symbol = candidate?.symbol || pair.baseToken?.symbol || "PUMP";
-          const creator = candidate?.creator || "unknown";
+        // Approximate net SOL on bonding curve
+        const approxNetSol = (curveProgress / 100) * 85.0;
 
-          // Calculate approximate net SOL
-          const approxNetSol = (curveProgress / 100) * 85.0;
-
-          // Compute quantitative metrics
-          const hawkesEta = ofi >= 0.70 ? 1.15 : 0.85;
-          const hurstH = ofi >= 0.65 ? 0.68 : 0.52;
-          const gradProb = Math.min(0.95, (curveProgress / 100) * 1.2);
-          const regime = curveProgress > 50 ? "MARKUP_FRENZY" : "ACCUMULATION";
-
-          const rugCheck = await fetchRugCheck(mint);
-
-          const card = formatResearchCard(
-            mint,
-            symbol,
-            name,
-            creator,
-            85, // Score
-            approxNetSol,
-            buys,
-            0.08, // HHI
-            ["STAGE_2_VOLUME_BREAKOUT", "VERIFIED_COMMUNITY", "HEALTHY_OFI"],
-            false,
-            curveProgress,
-            volumeH1 / 60, // velocity
-            0.25, // top5Share
-            0.04, // devSupplyPct
-            ofi,
-            0.15, // VPIN toxicity (low)
-            2.85, // entropy
-            0.008, // Amihud
-            1.85, // Pareto
-            gradProb,
-            regime,
-            hawkesEta,
-            hurstH,
-            buys,
-            0.05, // sybil
-            0.02, // mev
-            0.0, // sri
-            0,
-            0,
-            0.05,
-            rugCheck.status,
-            rugCheck.score,
-            rugCheck.risks
-          );
-
-          await env.DB.prepare(
-            `INSERT INTO alerts (mint, symbol, score, net_sol, unique_buyers, buyer_hhi, flags, created_at)
-             VALUES (?, ?, 85, ?, ?, 0.08, 'STAGE_2_BREAKOUT', ?)`
-          )
-            .bind(mint, symbol, approxNetSol, buys, Date.now())
-            .run();
-
-          const isAlertsPaused = env.PAUSE_TELEGRAM_ALERTS === "true" || env.PAUSE_TELEGRAM_ALERTS === "1";
-          if (!isAlertsPaused) {
-            await sendTelegramMessage(token, chatId, card);
+        // Deduping / Milestone progression:
+        // If already alerted, only re-alert on massive progression (e.g. 70% migration watch)
+        if (lastStage2) {
+          const isMajorProgression = curveProgress >= 70 && (lastStage2.net_sol / 85.0 * 100) < 70;
+          if (!isMajorProgression) {
+            continue;
           }
+        }
+
+        const rugCheck = await fetchRugCheck(mint);
+        // Security gate: reject known malicious or danger contracts
+        if (rugCheck.status === "DANGER") {
+          continue;
+        }
+
+        const candidate = candidates.find(c => c.mint === mint);
+        const name = candidate?.name || pair.baseToken?.name || "Token";
+        const symbol = candidate?.symbol || pair.baseToken?.symbol || "PUMP";
+        const creator = candidate?.creator || "unknown";
+
+        // Compute quantitative metrics
+        const hawkesEta = ofi >= 0.70 ? 1.15 : 0.85;
+        const hurstH = ofi >= 0.65 ? 0.68 : 0.52;
+        const gradProb = Math.min(0.95, (curveProgress / 100) * 1.2);
+        const regime = curveProgress > 50 ? "MARKUP_FRENZY" : "ACCUMULATION";
+        const effectiveBuyers = Math.max(15, Math.round(buys * 0.70));
+        const estimatedHhi = Math.max(0.04, Math.min(0.25, 2.0 / effectiveBuyers));
+        const estimatedTop5 = Math.max(0.15, Math.min(0.40, 5.0 / effectiveBuyers));
+        const vpin = Math.max(0.05, Math.min(0.45, Math.abs(buys - sells) / totalTx));
+
+        const card = formatResearchCard(
+          mint,
+          symbol,
+          name,
+          creator,
+          85, // Score
+          approxNetSol,
+          buys,
+          estimatedHhi,
+          ["STAGE_2_VOLUME_BREAKOUT", "VERIFIED_COMMUNITY", "HEALTHY_OFI"],
+          false,
+          curveProgress,
+          volumeH1 / 60, // velocity
+          estimatedTop5,
+          0.04, // devSupplyPct
+          ofi,
+          vpin,
+          2.85, // entropy
+          0.008, // Amihud
+          1.85, // Pareto
+          gradProb,
+          regime,
+          hawkesEta,
+          hurstH,
+          effectiveBuyers,
+          0.05, // sybil
+          0.02, // mev
+          0.0, // sri
+          0,
+          0,
+          0.05,
+          rugCheck.status,
+          rugCheck.score,
+          rugCheck.risks
+        );
+
+        await env.DB.prepare(
+          `INSERT INTO alerts (mint, symbol, score, net_sol, unique_buyers, buyer_hhi, flags, created_at)
+           VALUES (?, ?, 85, ?, ?, ?, 'STAGE_2_BREAKOUT', ?)`
+        )
+          .bind(mint, symbol, approxNetSol, buys, estimatedHhi, Date.now())
+          .run();
+
+        const isAlertsPaused = env.PAUSE_TELEGRAM_ALERTS === "true" || env.PAUSE_TELEGRAM_ALERTS === "1";
+        if (!isAlertsPaused) {
+          await sendTelegramMessage(token, chatId, card);
         }
       }
     }

@@ -788,7 +788,11 @@ export async function resolveMetadataForToken(mint: string, uri: string, env: En
 
               // Check if Telegram alerts are paused before sending
               const isAlertsPaused = env.PAUSE_TELEGRAM_ALERTS === "true" || env.PAUSE_TELEGRAM_ALERTS === "1";
-              if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID && !isAlertsPaused) {
+              const enableStage1Tg = env.ENABLE_STAGE1_TELEGRAM_ALERTS === "true" || env.ENABLE_STAGE1_TELEGRAM_ALERTS === "1";
+              // Only push creation-stage to Telegram if explicitly enabled OR if created by a Tracked Alpha Whale
+              const isAlphaCreator = isSmartCreator && stage1Score >= 90 && rugCheck.status === "SAFE";
+
+              if (env.TELEGRAM_BOT_TOKEN && env.TELEGRAM_CHAT_ID && !isAlertsPaused && (enableStage1Tg || isAlphaCreator)) {
                 const card = formatVerifiedLaunchCard(
                   mint,
                   tokenSymbol,
